@@ -1,9 +1,8 @@
+import app/dispatcher
 import app/router
 import discord_gleam
 import discord_gleam/bot
 import discord_gleam/discord/intents
-import discord_gleam/event_handler
-import discord_gleam/types/message
 import dot_env as dot
 import dot_env/env
 import gleam/otp/static_supervisor as supervisor
@@ -21,11 +20,11 @@ pub fn start(wrap_reload) {
   logging.configure()
   logging.set_level(logging.Info)
 
-  let _ = start_webserver(wrap_reload)
+  let _ = start_web(wrap_reload)
   let _ = start_bot()
 }
 
-fn start_webserver(wrap_reload) {
+fn start_web(wrap_reload) {
   wisp.configure_logger()
 
   // Here we generate a secret key, but in a real application you would want to
@@ -40,7 +39,7 @@ fn start_webserver(wrap_reload) {
   |> mist.start
 }
 
-fn start_bot() {
+pub fn start_bot() {
   let token = env.get_string_or("BOT_TOKEN", "")
   let client_id = env.get_string_or("CLIENT_ID", "")
   let bot =
@@ -49,7 +48,7 @@ fn start_bot() {
 
   let bot =
     supervision.worker(fn() {
-      discord_gleam.simple(bot, [simple_handler])
+      discord_gleam.simple(bot, [dispatcher.simple_handler])
       |> discord_gleam.start()
     })
 
@@ -57,37 +56,4 @@ fn start_bot() {
     supervisor.new(supervisor.OneForOne)
     |> supervisor.add(bot)
     |> supervisor.start()
-}
-
-fn simple_handler(bot, packet: event_handler.Packet) {
-  case packet {
-    event_handler.ReadyPacket(ready) -> {
-      logging.log(
-        logging.Info,
-        "Bot is ready! Logged in as: " <> ready.user.username,
-      )
-      Nil
-    }
-
-    event_handler.MessagePacket(message) -> {
-      logging.log(logging.Info, "Got message: " <> message.content)
-
-      case message.content {
-        "!ping" -> {
-          let _ =
-            discord_gleam.send_message(
-              bot,
-              message.channel_id,
-              message.new("Pongfff!"),
-            )
-
-          Nil
-        }
-
-        _ -> Nil
-      }
-    }
-
-    _ -> Nil
-  }
 }
