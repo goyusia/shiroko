@@ -1,4 +1,4 @@
-import app/web
+import shiroko/web
 import wisp.{type Request, type Response}
 
 /// The HTTP request handler- your application!

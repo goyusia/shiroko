@@ -1,13 +1,13 @@
-# hello_gleam
+# shiroko
 
-[![Package Version](https://img.shields.io/hexpm/v/hello_gleam)](https://hex.pm/packages/hello_gleam)
+[![Package Version](https://img.shields.io/hexpm/v/shiroko)](https://hex.pm/packages/shiroko)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hello-gleam.hexdocs.pm/)
 
 ```sh
-gleam add hello_gleam@1
+gleam add shiroko@1
 ```
 ```gleam
-import hello_gleam
+import shiroko
 
 pub fn main() -> Nil {
   // TODO: An example of the project in use
