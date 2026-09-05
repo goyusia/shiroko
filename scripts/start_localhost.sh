@@ -2,4 +2,4 @@
 
 set -ex
 
-ERL_FLAGS="-sname shiroko -setcookie my-secret" gleam run
+ERL_FLAGS="-sname shiroko -setcookie my-secret" gleam dev

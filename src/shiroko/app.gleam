@@ -1,4 +1,3 @@
-import dot_env as dot
 import logging
 import mist
 import shiroko/discord
@@ -7,10 +6,6 @@ import wisp
 import wisp/wisp_mist
 
 pub fn start(wrap_reload) {
-  dot.new()
-  |> dot.set_debug(False)
-  |> dot.load
-
   logging.configure()
   logging.set_level(logging.Info)
 
