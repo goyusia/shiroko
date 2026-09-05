@@ -1,20 +1,23 @@
-FROM erlang:27.1.1.0-alpine AS build
-
-COPY --from=ghcr.io/gleam-lang/gleam:v1.18.1-erlang-alpine /bin/gleam /bin/gleam
+FROM ghcr.io/gleam-lang/gleam:v1.18.1-erlang-alpine AS build
 
 WORKDIR /app
 COPY gleam.toml manifest.toml ./
 COPY src ./src
 RUN gleam export erlang-shipment
 
-FROM erlang:27.1.1.0-alpine
+FROM docker.io/library/erlang:29.0.6.0-slim
 
-RUN addgroup --system app && adduser --system app -G app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends adduser ca-certificates \
+    && update-ca-certificates \
+    && addgroup --system app \
+    && adduser --system --ingroup app app \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=build /app/build/erlang-shipment ./
 USER app
 
 EXPOSE 8000
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
 CMD ["run"]
