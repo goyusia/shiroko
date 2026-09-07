@@ -10,6 +10,10 @@ discord_gleam = ">= 3.1.0 and < 4.0.0"
 logging = ">= 1.5.0 and < 2.0.0"
 gleam_otp = ">= 1.3.0 and < 2.0.0"
 dot_env = ">= 1.3.0 and < 2.0.0"
+systemd_status = ">= 1.0.2 and < 2.0.0"
+shellout = ">= 1.8.0 and < 2.0.0"
+gleam_json = ">= 3.1.0 and < 4.0.0"
+gleam_http = ">= 4.4.0 and < 5.0.0"
 
 [dev_dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
