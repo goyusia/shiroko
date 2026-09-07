@@ -1,6 +1,5 @@
 import logging
 import mist
-import shiroko/discord
 import shiroko/router
 import wisp
 import wisp/wisp_mist
@@ -10,7 +9,7 @@ pub fn start(wrap_reload) {
   logging.set_level(logging.Info)
 
   let _ = start_web(wrap_reload)
-  let _ = discord.start_bot()
+  // let _ = discord.start_bot()
 }
 
 fn start_web(wrap_reload) {

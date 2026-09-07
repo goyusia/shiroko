@@ -1,16 +1,16 @@
+import foundation/http_json
 import gleam/http
 import gleam/json
 import gleam/list
 import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
-import shiroko/http_json
-import shiroko/service/systemd
-import shiroko/service/systemd_json
 import systemd_status
+import uptime/systemd
+import uptime/systemd_json
 import wisp.{type Request, type Response}
 
-pub fn view_list_service(_req: Request) -> Response {
+pub fn page_list(_req: Request) -> Response {
   let units = [
     "shiroko",
     "dagu",
@@ -25,14 +25,14 @@ pub fn view_list_service(_req: Request) -> Response {
   let elements =
     units
     |> list.map(fn(unit: String) {
-      let link = "/services/" <> unit
+      let link = "/uptime/" <> unit
       html.li([], [html.a([attribute.href(link)], [html.text(unit)])])
     })
 
   let html =
     html([], [
       html.body([], [
-        html.h1([], [html.text("systemd services")]),
+        html.h1([], [html.text("uptime")]),
         html.ul([], elements),
       ]),
     ])
@@ -40,15 +40,15 @@ pub fn view_list_service(_req: Request) -> Response {
   wisp.html_response(html, 200)
 }
 
-pub fn view_show_service(_req: Request, unit: String) -> Response {
+pub fn page_show(_req: Request, unit: String) -> Response {
   let service = systemd.query_service(unit)
   let json_string = service |> systemd_json.service_to_json |> json.to_string
-  let link = "/api/services/" <> unit
+  let link = "/api/uptime/" <> unit
 
   let html =
     html([], [
       html.body([], [
-        html.h1([], [html.text("systemd service: " <> unit)]),
+        html.h1([], [html.text("uptime: " <> unit)]),
         html.a([attribute.href(link)], [html.text("api")]),
         html.pre([], [html.text(json_string)]),
       ]),
@@ -61,7 +61,7 @@ pub fn view_show_service(_req: Request, unit: String) -> Response {
   wisp.html_response(html_string, 200)
 }
 
-pub fn api_show_service(req: Request, unit: String) -> Response {
+pub fn api_show(req: Request, unit: String) -> Response {
   use <- wisp.require_method(req, http.Get)
 
   let service = systemd.query_service(unit)
