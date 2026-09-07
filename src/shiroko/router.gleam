@@ -3,6 +3,7 @@ import lustre/element
 import lustre/element/html.{html}
 import shiroko/web
 import shiroko/web/service
+import shiroko/web/system
 import wisp.{type Request, type Response}
 
 pub fn handle_request(req: Request) -> Response {
@@ -13,6 +14,10 @@ pub fn handle_request(req: Request) -> Response {
     ["services", unit] -> service.view_show_service(req, unit)
     ["services"] -> service.view_list_service(req)
     ["api", "services", unit] -> service.api_show_service(req, unit)
+    ["healthz"] -> system.healthz(req)
+    ["readyz"] -> system.readyz(req)
+    ["startupz"] -> system.startupz(req)
+    ["version"] -> system.version(req)
     _ -> wisp.not_found()
   }
 }
