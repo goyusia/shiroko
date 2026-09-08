@@ -20,12 +20,14 @@ fn start_web(wrap_reload) {
   // load this from somewhere so that it is not regenerated on every restart.
   let secret_key_base = wisp.random_string(64)
 
-  let port = env.get_int_or("SHIROKO_PORT", 8080)
+  let host = env.get_string_or("SHIROKO_HOST", "0.0.0.0")
+  let port = env.get_int_or("SHIROKO_PORT", 5161)
 
   // Start the Mist web server.
   wisp_mist.handler(router.handle_request, secret_key_base)
   |> wrap_reload()
   |> mist.new
+  |> mist.bind(host)
   |> mist.port(port)
   |> mist.start
 }
