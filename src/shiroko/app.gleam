@@ -1,8 +1,8 @@
-import uptime/uptime
 import dot_env/env
 import logging
 import mist
 import shiroko/router
+import uptime/uptime
 import wisp
 import wisp/wisp_mist
 
@@ -10,7 +10,7 @@ pub fn start(wrap_reload) {
   logging.configure()
   logging.set_level(logging.Info)
 
-  let _ = uptime.start()
+  let _ = start_uptime()
   let _ = start_web(wrap_reload)
 }
 
@@ -31,4 +31,18 @@ fn start_web(wrap_reload) {
   |> mist.bind(host)
   |> mist.port(port)
   |> mist.start
+}
+
+fn start_uptime() {
+  let host = "http://ichika"
+  // let host = "http://127.0.0.1"
+  let interval = 60_000
+
+  let probes = [
+    uptime.Probe(name: "nginx", url: host, interval:),
+    uptime.Probe(name: "Pi-hole Admin", url: host <> ":8089/admin/", interval:),
+    uptime.Probe(name: "calibre", url: host <> ":8083/login", interval:),
+    uptime.Probe(name: "dagu", url: host <> ":8525/login", interval:),
+  ]
+  uptime.start(probes)
 }
