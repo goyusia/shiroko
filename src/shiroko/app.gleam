@@ -1,3 +1,4 @@
+import uptime/uptime
 import dot_env/env
 import logging
 import mist
@@ -9,8 +10,8 @@ pub fn start(wrap_reload) {
   logging.configure()
   logging.set_level(logging.Info)
 
+  let _ = uptime.start()
   let _ = start_web(wrap_reload)
-  // let _ = discord.start_bot()
 }
 
 fn start_web(wrap_reload) {
