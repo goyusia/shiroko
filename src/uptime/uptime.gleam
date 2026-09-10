@@ -16,7 +16,12 @@ pub type HeartbeatObservation {
 }
 
 pub type Probe {
-  Probe(name: String, url: String, interval: Int)
+  Probe(
+    name: String,
+    url: String,
+    interval: Int,
+    worker_name: process.Name(Message),
+  )
 }
 
 pub type State {
@@ -82,15 +87,25 @@ fn handle_get_state(
   actor.continue(state)
 }
 
-fn start(probes: List(Probe)) {
-  list.fold(probes, supervisor.new(supervisor.OneForOne), fn(sup, probe) {
-    supervisor.add(sup, supervision.worker(fn() { start_worker(probe) }))
-  })
-  |> supervisor.start()
+pub fn get_state(name: process.Name(Message)) -> State {
+  process.named_subject(name)
+  |> process.call(1000, fn(reply) { GetState(reply) })
 }
 
-pub fn supervised(probes: List(Probe)) {
-  supervision.supervisor(fn() { start(probes) })
+pub fn supervised(probes: List(Probe), name: process.Name(Nil)) {
+  supervision.supervisor(fn() { start_supervisor(probes, name) })
+}
+
+fn start_supervisor(probes: List(Probe), name: process.Name(Nil)) {
+  let sup =
+    list.fold(probes, supervisor.new(supervisor.OneForOne), fn(sup, probe) {
+      supervisor.add(sup, supervision.worker(fn() { start_worker(probe) }))
+    })
+    |> supervisor.start()
+
+  use started <- result.try(sup)
+  let assert Ok(Nil) = process.register(started.pid, name)
+  Ok(started)
 }
 
 fn start_worker(probe: Probe) {
@@ -100,6 +115,7 @@ fn start_worker(probe: Probe) {
     let initial = State(subject:, probe:, histories: [])
     Ok(actor.initialised(initial) |> actor.returning(subject))
   })
+  |> actor.named(probe.worker_name)
   |> actor.on_message(handle_message)
   |> actor.start()
 }

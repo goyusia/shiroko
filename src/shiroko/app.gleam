@@ -1,5 +1,6 @@
 import dot_env as dot
 import dot_env/env
+import gleam/erlang/process
 import gleam/otp/static_supervisor as supervisor
 import logging
 import mist
@@ -45,11 +46,45 @@ fn start_uptime() {
   // let host = "http://127.0.0.1"
   let interval = 60_000
 
-  let probes = [
-    uptime.Probe(name: "nginx", url: host, interval:),
-    uptime.Probe(name: "Pi-hole Admin", url: host <> ":8089/admin/", interval:),
-    uptime.Probe(name: "calibre", url: host <> ":8083/login", interval:),
-    uptime.Probe(name: "dagu", url: host <> ":8525/login", interval:),
-  ]
-  uptime.supervised(probes)
+  let nginx = process.new_name("uptime_nginx")
+  let nginx_probe =
+    uptime.Probe(
+      name: "nginx",
+      url: host,
+      interval: interval,
+      worker_name: nginx,
+    )
+
+  let pi_hole = process.new_name("uptime_pi_hole")
+  let pi_hole_probe =
+    uptime.Probe(
+      name: "Pi-hole Admin",
+      url: host <> ":8089/admin/",
+      interval: interval,
+      worker_name: pi_hole,
+    )
+
+  let calibre = process.new_name("uptime_calibre")
+  let calibre_probe =
+    uptime.Probe(
+      name: "calibre",
+      url: host <> ":8083/login",
+      interval: interval,
+      worker_name: calibre,
+    )
+
+  let dagu = process.new_name("uptime_dagu")
+  let dagu_probe =
+    uptime.Probe(
+      name: "dagu",
+      url: host <> ":8525/login",
+      interval: interval,
+      worker_name: dagu,
+    )
+
+  let supervisor_name = process.new_name("uptime")
+  uptime.supervised(
+    [nginx_probe, pi_hole_probe, calibre_probe, dagu_probe],
+    supervisor_name,
+  )
 }
