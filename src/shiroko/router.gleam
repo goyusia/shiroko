@@ -4,9 +4,13 @@ import lustre/element/html.{html}
 import shiroko/web
 import shiroko/web/system
 import uptime/router as uptime_router
+import uptime/uptime
 import wisp.{type Request, type Response}
 
-pub fn handle_request(req: Request) -> Response {
+pub fn handle_request(
+  uptime_service: uptime.ProbeRegistry,
+  req: Request,
+) -> Response {
   use _req <- web.middleware(req)
 
   case wisp.path_segments(req) {
@@ -14,6 +18,8 @@ pub fn handle_request(req: Request) -> Response {
     ["uptime", unit] -> uptime_router.page_show(req, unit)
     ["uptime"] -> uptime_router.page_list(req)
     ["api", "uptime", unit] -> uptime_router.api_show(req, unit)
+    ["api", "uptime", "probe", service] ->
+      uptime_router.api_probe(req, service, uptime_service)
     ["healthz"] -> system.healthz(req)
     ["readyz"] -> system.readyz(req)
     ["startupz"] -> system.startupz(req)

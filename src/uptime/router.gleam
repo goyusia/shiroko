@@ -8,6 +8,7 @@ import lustre/element/html.{html}
 import systemd_status
 import uptime/systemd
 import uptime/systemd_json
+import uptime/uptime
 import wisp.{type Request, type Response}
 
 pub fn page_list(_req: Request) -> Response {
@@ -73,6 +74,26 @@ pub fn api_show(req: Request, unit: String) -> Response {
     _ ->
       service
       |> systemd_json.service_to_json
+      |> json.to_string
+      |> wisp.json_response(200)
+  }
+}
+
+pub fn api_probe(
+  req: Request,
+  service: String,
+  uptime_service: uptime.ProbeRegistry,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+
+  case uptime.status(uptime_service, service) {
+    Error(_) ->
+      http_json.error_json("uptime probe not found: " <> service)
+      |> json.to_string
+      |> wisp.json_response(404)
+    Ok(state) ->
+      state
+      |> uptime.state_to_json
       |> json.to_string
       |> wisp.json_response(200)
   }

@@ -1,12 +1,16 @@
+import gleam/dict
 import gleam/erlang/process.{type Subject}
 import gleam/http/request
 import gleam/httpc
 import gleam/int
+import gleam/json
 import gleam/list
 import gleam/otp/actor
 import gleam/otp/static_supervisor as supervisor
 import gleam/otp/supervision
 import gleam/result
+import gleam/string
+import gleam/time/duration
 import gleam/time/timestamp
 import logging
 
@@ -16,12 +20,15 @@ pub type HeartbeatObservation {
 }
 
 pub type Probe {
-  Probe(
-    name: String,
-    url: String,
-    interval: Int,
-    worker_name: process.Name(Message),
-  )
+  Probe(name: String, url: String, interval: Int)
+}
+
+type Worker {
+  Worker(probe: Probe, name: process.Name(Message))
+}
+
+pub opaque type ProbeRegistry {
+  ProbeRegistry(workers: dict.Dict(String, Worker))
 }
 
 pub type State {
@@ -87,35 +94,90 @@ fn handle_get_state(
   actor.continue(state)
 }
 
-pub fn get_state(name: process.Name(Message)) -> State {
+pub fn new(probes: List(Probe)) -> ProbeRegistry {
+  let workers =
+    probes
+    |> list.fold(dict.new(), fn(workers, probe) {
+      let worker = Worker(probe:, name: process.new_name("uptime_worker"))
+      dict.insert(workers, probe.name, worker)
+    })
+
+  ProbeRegistry(workers:)
+}
+
+pub fn status(registry: ProbeRegistry, service: String) -> Result(State, Nil) {
+  use worker <- result.try(dict.get(registry.workers, service))
+  Ok(get_state(worker.name))
+}
+
+pub fn state_to_json(state: State) -> json.Json {
+  let active = case state.histories {
+    [Responded(..), ..] -> True
+    _ -> False
+  }
+
+  json.object([
+    #("name", json.string(state.probe.name)),
+    #("active", json.bool(active)),
+    #("history", json.array(state.histories, of: observation_to_json)),
+  ])
+}
+
+fn observation_to_json(observation: HeartbeatObservation) -> json.Json {
+  case observation {
+    Responded(status, checked_at) ->
+      json.object([
+        #("active", json.bool(True)),
+        #("http_status", json.int(status)),
+        #(
+          "checked_at",
+          json.string(timestamp.to_rfc3339(checked_at, duration.seconds(0))),
+        ),
+      ])
+    Unreachable(error, checked_at) ->
+      json.object([
+        #("active", json.bool(False)),
+        #("error", json.string(string.inspect(error))),
+        #(
+          "checked_at",
+          json.string(timestamp.to_rfc3339(checked_at, duration.seconds(0))),
+        ),
+      ])
+  }
+}
+
+fn get_state(name: process.Name(Message)) -> State {
   process.named_subject(name)
   |> process.call(1000, fn(reply) { GetState(reply) })
 }
 
-pub fn supervised(probes: List(Probe), name: process.Name(Nil)) {
-  supervision.supervisor(fn() { start_supervisor(probes, name) })
+pub fn supervised(registry: ProbeRegistry) {
+  supervision.supervisor(fn() { start_supervisor(registry) })
 }
 
-fn start_supervisor(probes: List(Probe), name: process.Name(Nil)) {
+fn start_supervisor(registry: ProbeRegistry) {
+  let ProbeRegistry(workers:) = registry
   let sup =
-    list.fold(probes, supervisor.new(supervisor.OneForOne), fn(sup, probe) {
-      supervisor.add(sup, supervision.worker(fn() { start_worker(probe) }))
-    })
+    dict.fold(
+      workers,
+      from: supervisor.new(supervisor.OneForOne),
+      with: fn(sup, _service, worker) {
+        supervisor.add(sup, supervision.worker(fn() { start_worker(worker) }))
+      },
+    )
     |> supervisor.start()
 
-  use started <- result.try(sup)
-  let assert Ok(Nil) = process.register(started.pid, name)
-  Ok(started)
+  sup
 }
 
-fn start_worker(probe: Probe) {
+fn start_worker(worker: Worker) {
   actor.new_with_initialiser(1000, fn(subject) {
     process.send(subject, CheckHttp)
 
-    let initial = State(subject:, probe:, histories: [])
+    let initial = State(subject:, probe: worker.probe, histories: [])
     Ok(actor.initialised(initial) |> actor.returning(subject))
   })
-  |> actor.named(probe.worker_name)
+  |> actor.named(worker.name)
   |> actor.on_message(handle_message)
   |> actor.start()
 }
