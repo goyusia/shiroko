@@ -7,7 +7,6 @@ import lustre/element
 import lustre/element/html.{html}
 import systemd_status
 import uptime/systemd
-import uptime/systemd_json
 import uptime/uptime
 import wisp.{type Request, type Response}
 
@@ -43,7 +42,7 @@ pub fn page_list(_req: Request) -> Response {
 
 pub fn page_show(_req: Request, unit: String) -> Response {
   let service = systemd.query_service(unit)
-  let json_string = service |> systemd_json.service_to_json |> json.to_string
+  let json_string = service |> systemd.service_to_json |> json.to_string
   let link = "/api/uptime/" <> unit
 
   let html =
@@ -73,7 +72,7 @@ pub fn api_show(req: Request, unit: String) -> Response {
       |> wisp.json_response(404)
     _ ->
       service
-      |> systemd_json.service_to_json
+      |> systemd.service_to_json
       |> json.to_string
       |> wisp.json_response(200)
   }
