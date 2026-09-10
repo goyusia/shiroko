@@ -28,7 +28,7 @@ pub type State {
 }
 
 pub type Message {
-  Get(Subject(State))
+  GetState(Subject(State))
   CheckHttp
 }
 
@@ -37,7 +37,7 @@ fn handle_message(
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    Get(reply) -> handle_get(state, reply)
+    GetState(reply) -> handle_get_state(state, reply)
     CheckHttp -> handle_check_http(state)
   }
 }
@@ -74,7 +74,7 @@ fn check_http(probe: Probe) {
   Ok(result)
 }
 
-fn handle_get(
+fn handle_get_state(
   state: State,
   reply: Subject(State),
 ) -> actor.Next(State, Message) {
