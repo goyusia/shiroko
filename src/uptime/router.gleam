@@ -19,7 +19,7 @@ pub fn page_list(_req: Request, registry: uptime.EndpointRegistry) -> Response {
             [uptime.Responded(..), ..] -> "active"
             _ -> "inactive"
           }
-          let link = "/api/chihiro/" <> name
+          let link = "/api/uptime/" <> name
           html.li([], [
             html.a([attribute.href(link)], [html.text(name)]),
             html.text(": " <> active),

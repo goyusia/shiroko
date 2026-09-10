@@ -17,7 +17,7 @@ pub fn handle_request(
   case wisp.path_segments(req) {
     [] -> index(req)
     ["uptime"] -> uptime_router.page_list(req, uptime_registry)
-    ["api", "chihiro", service] ->
+    ["api", "uptime", service] ->
       uptime_router.api_show(req, service, uptime_registry)
     ["healthz"] -> system.healthz(req)
     ["readyz"] -> system.readyz(req)
