@@ -1,4 +1,5 @@
 import foundation/http_json
+import foundation/page
 import gleam/http
 import gleam/json
 import gleam/list
@@ -30,6 +31,7 @@ pub fn page_list(_req: Request, registry: uptime.EndpointRegistry) -> Response {
 
   let html =
     html([], [
+      page.view_head("uptime"),
       html.body([], [
         html.h1([], [html.text("uptime")]),
         html.h2([], [html.text("endpoints")]),

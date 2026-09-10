@@ -1,3 +1,4 @@
+import foundation/page
 import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
@@ -29,6 +30,7 @@ pub fn handle_request(
 fn index(_req: Request) -> Response {
   let html =
     html([], [
+      page.view_head("shiroko"),
       html.body([], [
         html.h1([], [html.text("shiroko")]),
         html.a([attribute.href("/uptime")], [html.text("uptime")]),
