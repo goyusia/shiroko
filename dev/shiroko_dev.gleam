@@ -1,13 +1,7 @@
-import dot_env as dot
+import external/observer
 import gleam/erlang/process
-import mist/reload
-import shiroko/app
 
 pub fn main() {
-  dot.new()
-  |> dot.set_debug(False)
-  |> dot.load
-
-  let assert Ok(_) = app.start(reload.wrap)
+  observer.start()
   process.sleep_forever()
 }

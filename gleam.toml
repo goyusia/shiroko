@@ -21,3 +21,6 @@ gleam_time = ">= 1.10.0 and < 2.0.0"
 [dev_dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
 mist_reload = ">= 1.0.1 and < 2.0.0"
+
+[erlang]
+application_start_module = "shiroko@application"

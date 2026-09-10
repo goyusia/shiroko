@@ -82,11 +82,15 @@ fn handle_get_state(
   actor.continue(state)
 }
 
-pub fn start(probes: List(Probe)) {
+fn start(probes: List(Probe)) {
   list.fold(probes, supervisor.new(supervisor.OneForOne), fn(sup, probe) {
     supervisor.add(sup, supervision.worker(fn() { start_worker(probe) }))
   })
   |> supervisor.start()
+}
+
+pub fn supervised(probes: List(Probe)) {
+  supervision.supervisor(fn() { start(probes) })
 }
 
 fn start_worker(probe: Probe) {
