@@ -14,28 +14,28 @@ import gleam/time/duration
 import gleam/time/timestamp
 import logging
 
-pub type HeartbeatObservation {
+pub type Endpoint {
+  Http(name: String, url: String, interval: Int)
+}
+
+pub type HttpObservation {
   Responded(status: Int, checked_at: timestamp.Timestamp)
   Unreachable(error: httpc.HttpError, checked_at: timestamp.Timestamp)
 }
 
-pub type Probe {
-  Probe(name: String, url: String, interval: Int)
-}
-
 type Worker {
-  Worker(probe: Probe, name: process.Name(Message))
+  Worker(endpoint: Endpoint, name: process.Name(Message))
 }
 
-pub opaque type ProbeRegistry {
-  ProbeRegistry(workers: dict.Dict(String, Worker))
+pub opaque type EndpointRegistry {
+  EndpointRegistry(workers: dict.Dict(String, Worker))
 }
 
 pub type State {
   State(
     subject: process.Subject(Message),
-    probe: Probe,
-    histories: List(HeartbeatObservation),
+    endpoint: Endpoint,
+    histories: List(HttpObservation),
   )
 }
 
@@ -55,7 +55,7 @@ fn handle_message(
 }
 
 fn handle_check_http(state: State) -> actor.Next(State, Message) {
-  let observation = case check_http(state.probe) {
+  let observation = case check_http(state.endpoint) {
     Ok(record) -> record
     Error(error) -> {
       echo error
@@ -66,19 +66,19 @@ fn handle_check_http(state: State) -> actor.Next(State, Message) {
   let histories = [observation, ..state.histories] |> list.take(10)
   let state = State(..state, histories: histories)
 
-  process.send_after(state.subject, state.probe.interval, CheckHttp)
+  process.send_after(state.subject, state.endpoint.interval, CheckHttp)
   actor.continue(state)
 }
 
-fn check_http(probe: Probe) {
-  let assert Ok(req) = request.to(probe.url)
+fn check_http(endpoint: Endpoint) {
+  let assert Ok(req) = request.to(endpoint.url)
   use resp <- result.try(httpc.send(req))
   let now = timestamp.system_time()
 
   logging.log(
     logging.Info,
     "HTTP response: name="
-      <> probe.name
+      <> endpoint.name
       <> " status="
       <> int.to_string(resp.status),
   )
@@ -94,24 +94,30 @@ fn handle_get_state(
   actor.continue(state)
 }
 
-pub fn new(probes: List(Probe)) -> ProbeRegistry {
+pub fn new(endpoints: List(Endpoint)) -> EndpointRegistry {
   let workers =
-    probes
-    |> list.fold(dict.new(), fn(workers, probe) {
-      let worker = Worker(probe:, name: process.new_name("uptime_worker"))
-      dict.insert(workers, probe.name, worker)
+    endpoints
+    |> list.fold(dict.new(), fn(workers, endpoint) {
+      let worker =
+        Worker(endpoint: endpoint, name: process.new_name("uptime_worker"))
+      dict.insert(workers, endpoint.name, worker)
     })
 
-  ProbeRegistry(workers:)
+  EndpointRegistry(workers:)
 }
 
-pub fn state(registry: ProbeRegistry, service: String) -> Result(State, Nil) {
+pub fn state(
+  registry: EndpointRegistry,
+  service: String,
+) -> Result(State, Nil) {
   use worker <- result.try(dict.get(registry.workers, service))
   Ok(get_state(worker.name))
 }
 
-pub fn states(registry: ProbeRegistry) -> List(#(String, Result(State, Nil))) {
-  let ProbeRegistry(workers:) = registry
+pub fn states(
+  registry: EndpointRegistry,
+) -> List(#(String, Result(State, Nil))) {
+  let EndpointRegistry(workers:) = registry
   let names = dict.keys(workers)
   let requests =
     list.map(names, fn(name) {
@@ -137,13 +143,13 @@ pub fn state_to_json(state: State) -> json.Json {
   }
 
   json.object([
-    #("name", json.string(state.probe.name)),
+    #("name", json.string(state.endpoint.name)),
     #("active", json.bool(active)),
     #("history", json.array(state.histories, of: observation_to_json)),
   ])
 }
 
-fn observation_to_json(observation: HeartbeatObservation) -> json.Json {
+fn observation_to_json(observation: HttpObservation) -> json.Json {
   case observation {
     Responded(status, checked_at) ->
       json.object([
@@ -171,12 +177,12 @@ fn get_state(name: process.Name(Message)) -> State {
   |> process.call(1000, fn(reply) { GetState(reply) })
 }
 
-pub fn supervised(registry: ProbeRegistry) {
+pub fn supervised(registry: EndpointRegistry) {
   supervision.supervisor(fn() { start_supervisor(registry) })
 }
 
-fn start_supervisor(registry: ProbeRegistry) {
-  let ProbeRegistry(workers:) = registry
+fn start_supervisor(registry: EndpointRegistry) {
+  let EndpointRegistry(workers:) = registry
   let sup =
     dict.fold(
       workers,
@@ -194,7 +200,7 @@ fn start_worker(worker: Worker) {
   actor.new_with_initialiser(1000, fn(subject) {
     process.send(subject, CheckHttp)
 
-    let initial = State(subject:, probe: worker.probe, histories: [])
+    let initial = State(subject:, endpoint: worker.endpoint, histories: [])
     Ok(actor.initialised(initial) |> actor.returning(subject))
   })
   |> actor.named(worker.name)

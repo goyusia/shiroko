@@ -24,7 +24,7 @@ pub fn start(wrap_reload) {
   |> supervisor.start()
 }
 
-fn start_web(wrap_reload, uptime_service: uptime.ProbeRegistry) {
+fn start_web(wrap_reload, uptime_registry: uptime.EndpointRegistry) {
   wisp.configure_logger()
 
   // Here we generate a secret key, but in a real application you would want to
@@ -35,7 +35,7 @@ fn start_web(wrap_reload, uptime_service: uptime.ProbeRegistry) {
   let port = env.get_int_or("SHIROKO_PORT", 5161)
 
   wisp_mist.handler(
-    fn(req) { router.handle_request(uptime_service, req) },
+    fn(req) { router.handle_request(uptime_registry, req) },
     secret_key_base,
   )
   |> wrap_reload()
@@ -45,23 +45,20 @@ fn start_web(wrap_reload, uptime_service: uptime.ProbeRegistry) {
   |> mist.supervised()
 }
 
-fn new_uptime() -> uptime.ProbeRegistry {
+fn new_uptime() -> uptime.EndpointRegistry {
   let host = "http://ichika"
   // let host = "http://127.0.0.1"
   let interval = 60_000
 
-  uptime.new([
-    uptime.Probe(name: "nginx", url: host, interval: interval),
-    uptime.Probe(
-      name: "Pi-hole Admin",
+  let endpoints = [
+    uptime.Http(name: "nginx", url: host, interval: interval),
+    uptime.Http(
+      name: "pi-hole",
       url: host <> ":8089/admin/",
       interval: interval,
     ),
-    uptime.Probe(
-      name: "calibre",
-      url: host <> ":8083/login",
-      interval: interval,
-    ),
-    uptime.Probe(name: "dagu", url: host <> ":8525/login", interval: interval),
-  ])
+    uptime.Http(name: "calibre", url: host <> ":8083/login", interval: interval),
+    uptime.Http(name: "dagu", url: host <> ":8525/login", interval: interval),
+  ]
+  uptime.new(endpoints)
 }
