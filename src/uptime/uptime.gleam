@@ -105,9 +105,29 @@ pub fn new(probes: List(Probe)) -> ProbeRegistry {
   ProbeRegistry(workers:)
 }
 
-pub fn status(registry: ProbeRegistry, service: String) -> Result(State, Nil) {
+pub fn state(registry: ProbeRegistry, service: String) -> Result(State, Nil) {
   use worker <- result.try(dict.get(registry.workers, service))
   Ok(get_state(worker.name))
+}
+
+pub fn states(registry: ProbeRegistry) -> List(#(String, Result(State, Nil))) {
+  let ProbeRegistry(workers:) = registry
+  let names = dict.keys(workers)
+  let requests =
+    list.map(names, fn(name) {
+      let reply = process.new_subject()
+      process.spawn_unlinked(fn() { process.send(reply, state(registry, name)) })
+      #(name, reply)
+    })
+
+  list.map(requests, fn(request) {
+    let #(name, reply) = request
+    let result = case process.receive(reply, 1000) {
+      Ok(result) -> result
+      Error(_) -> Error(Nil)
+    }
+    #(name, result)
+  })
 }
 
 pub fn state_to_json(state: State) -> json.Json {

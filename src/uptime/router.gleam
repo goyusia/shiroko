@@ -10,7 +10,7 @@ import uptime/systemd
 import uptime/uptime
 import wisp.{type Request, type Response}
 
-pub fn page_list(_req: Request) -> Response {
+pub fn page_list(_req: Request, registry: uptime.ProbeRegistry) -> Response {
   let units = [
     "shiroko",
     "dagu",
@@ -25,14 +25,36 @@ pub fn page_list(_req: Request) -> Response {
   let elements =
     units
     |> list.map(fn(unit: String) {
-      let link = "/uptime/" <> unit
+      let link = "/uptime/systemd/" <> unit
       html.li([], [html.a([attribute.href(link)], [html.text(unit)])])
+    })
+
+  let probes =
+    uptime.states(registry)
+    |> list.map(fn(result) {
+      case result {
+        #(name, Ok(state)) -> {
+          let active = case state.histories {
+            [uptime.Responded(..), ..] -> "active"
+            _ -> "inactive"
+          }
+          let link = "/api/uptime/probe/" <> name
+          html.li([], [
+            html.a([attribute.href(link)], [html.text(name)]),
+            html.text(": " <> active),
+          ])
+        }
+        #(name, Error(_)) -> html.li([], [html.text(name <> ": unavailable")])
+      }
     })
 
   let html =
     html([], [
       html.body([], [
         html.h1([], [html.text("uptime")]),
+        html.h2([], [html.text("probes")]),
+        html.ul([], probes),
+        html.h2([], [html.text("systemd")]),
         html.ul([], elements),
       ]),
     ])
@@ -40,10 +62,10 @@ pub fn page_list(_req: Request) -> Response {
   wisp.html_response(html, 200)
 }
 
-pub fn page_show(_req: Request, unit: String) -> Response {
+pub fn page_systemd(_req: Request, unit: String) -> Response {
   let service = systemd.query_service(unit)
   let json_string = service |> systemd.service_to_json |> json.to_string
-  let link = "/api/uptime/" <> unit
+  let link = "/api/uptime/systemd/" <> unit
 
   let html =
     html([], [
@@ -61,7 +83,7 @@ pub fn page_show(_req: Request, unit: String) -> Response {
   wisp.html_response(html_string, 200)
 }
 
-pub fn api_show(req: Request, unit: String) -> Response {
+pub fn api_systemd(req: Request, unit: String) -> Response {
   use <- wisp.require_method(req, http.Get)
 
   let service = systemd.query_service(unit)
@@ -80,14 +102,14 @@ pub fn api_show(req: Request, unit: String) -> Response {
 
 pub fn api_probe(
   req: Request,
-  service: String,
-  uptime_service: uptime.ProbeRegistry,
+  name: String,
+  registry: uptime.ProbeRegistry,
 ) -> Response {
   use <- wisp.require_method(req, http.Get)
 
-  case uptime.status(uptime_service, service) {
+  case uptime.state(registry, name) {
     Error(_) ->
-      http_json.error_json("uptime probe not found: " <> service)
+      http_json.error_json("uptime probe not found: " <> name)
       |> json.to_string
       |> wisp.json_response(404)
     Ok(state) ->
