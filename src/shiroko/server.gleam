@@ -18,7 +18,11 @@ pub fn start(wrap_reload) {
   |> dot.load
 
   let uptime_registry = new_uptime()
-  let context = web.Context(uptime_registry:)
+  let context =
+    web.Context(
+      uptime_registry: uptime_registry,
+      static_directory: static_directory(),
+    )
 
   supervisor.new(supervisor.OneForOne)
   |> supervisor.add(uptime.supervised(uptime_registry))
@@ -26,7 +30,7 @@ pub fn start(wrap_reload) {
   |> supervisor.start()
 }
 
-fn start_web(wrap_reload, context: web.Context) {
+fn start_web(wrap_reload, ctx: web.Context) {
   wisp.configure_logger()
 
   // Here we generate a secret key, but in a real application you would want to
@@ -36,7 +40,7 @@ fn start_web(wrap_reload, context: web.Context) {
   let host = env.get_string_or("SHIROKO_HOST", "0.0.0.0")
   let port = env.get_int_or("SHIROKO_PORT", 5161)
 
-  let handler = router.handle_request(_, context)
+  let handler = router.handle_request(_, ctx)
 
   handler
   |> wisp_mist.handler(secret_key_base)
@@ -45,6 +49,15 @@ fn start_web(wrap_reload, context: web.Context) {
   |> mist.bind(host)
   |> mist.port(port)
   |> mist.supervised()
+}
+
+pub fn static_directory() -> String {
+  // The priv directory is where we store non-Gleam and non-Erlang files,
+  // including static assets to be served.
+  // This function returns an absolute path and works both in development and in
+  // production after compilation.
+  let assert Ok(priv_directory) = wisp.priv_directory("shiroko")
+  priv_directory <> "/static"
 }
 
 fn new_uptime() -> uptime.EndpointRegistry {

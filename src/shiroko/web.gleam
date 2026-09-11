@@ -2,11 +2,12 @@ import uptime/uptime
 import wisp
 
 pub type Context {
-  Context(uptime_registry: uptime.EndpointRegistry)
+  Context(static_directory: String, uptime_registry: uptime.EndpointRegistry)
 }
 
 pub fn middleware(
   req: wisp.Request,
+  ctx: Context,
   handle_request: fn(wisp.Request) -> wisp.Response,
 ) -> wisp.Response {
   // Permit browsers to simulate methods other than GET and POST using the
@@ -24,6 +25,7 @@ pub fn middleware(
 
   // Known-header based CSRF protection for non-HEAD/GET requests
   use req <- wisp.csrf_known_header_protection(req)
+  use <- wisp.serve_static(req, under: "/static", from: ctx.static_directory)
 
   // Handle the request!
   handle_request(req)
