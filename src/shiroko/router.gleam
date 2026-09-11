@@ -3,6 +3,7 @@ import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
 import shiroko/web
+import shiroko/web/ops
 import shiroko/web/webhook
 import shiroko/web/zpage
 import uptime/router as uptime_router
@@ -20,6 +21,7 @@ pub fn handle_request(
     ["uptime"] -> uptime_router.page_list(req, uptime_registry)
     ["api", "uptime", service] ->
       uptime_router.api_show(req, service, uptime_registry)
+    ["ops", "redeploy"] -> ops.redeploy(req)
     ["webhook", "github"] -> webhook.github(req)
     ["healthz"] -> zpage.healthz(req)
     ["readyz"] -> zpage.readyz(req)
