@@ -5,5 +5,5 @@ set -ex
 cd /home/maint/apps/shiroko
 
 git pull
-gleam export erlang-shipment
-
+gleam build
+# gleam export erlang-shipment
