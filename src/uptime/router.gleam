@@ -3,6 +3,9 @@ import foundation/page
 import gleam/http
 import gleam/json
 import gleam/list
+import gleam/string
+import gleam/time/duration
+import gleam/time/timestamp
 import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
@@ -56,8 +59,38 @@ pub fn api_show(
       |> wisp.json_response(404)
     Ok(state) ->
       state
-      |> uptime.state_to_json
+      |> state_to_json
       |> json.to_string
       |> wisp.json_response(200)
+  }
+}
+
+fn state_to_json(state: uptime.State) -> json.Json {
+  let active = case state.histories {
+    [uptime.Responded(..), ..] -> True
+    _ -> False
+  }
+
+  json.object([
+    #("name", json.string(state.endpoint.name)),
+    #("active", json.bool(active)),
+    #("history", json.array(state.histories, of: observation_to_json)),
+  ])
+}
+
+fn observation_to_json(observation: uptime.HttpObservation) -> json.Json {
+  case observation {
+    uptime.Responded(status, at) ->
+      json.object([
+        #("active", json.bool(True)),
+        #("http_status", json.int(status)),
+        #("at", json.string(timestamp.to_rfc3339(at, duration.seconds(0)))),
+      ])
+    uptime.Unreachable(error, at) ->
+      json.object([
+        #("active", json.bool(False)),
+        #("error", json.string(string.inspect(error))),
+        #("at", json.string(timestamp.to_rfc3339(at, duration.seconds(0)))),
+      ])
   }
 }

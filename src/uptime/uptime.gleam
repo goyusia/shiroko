@@ -1,16 +1,15 @@
 import gleam/dict
 import gleam/erlang/process.{type Subject}
 import gleam/http/request
+import gleam/http/response
 import gleam/httpc
 import gleam/int
-import gleam/json
 import gleam/list
 import gleam/otp/actor
 import gleam/otp/static_supervisor as supervisor
 import gleam/otp/supervision
 import gleam/result
 import gleam/string
-import gleam/time/duration
 import gleam/time/timestamp
 import logging
 
@@ -19,8 +18,8 @@ pub type Endpoint {
 }
 
 pub type HttpObservation {
-  Responded(status: Int, checked_at: timestamp.Timestamp)
-  Unreachable(error: httpc.HttpError, checked_at: timestamp.Timestamp)
+  Responded(status: Int, at: timestamp.Timestamp)
+  Unreachable(error: httpc.HttpError, at: timestamp.Timestamp)
 }
 
 type Worker {
@@ -41,7 +40,8 @@ pub type State {
 
 pub type Message {
   GetState(Subject(State))
-  CheckHttp
+  Check
+  CheckFinished(Result(response.Response(String), httpc.HttpError))
 }
 
 fn handle_message(
@@ -50,40 +50,63 @@ fn handle_message(
 ) -> actor.Next(State, Message) {
   case message {
     GetState(reply) -> handle_get_state(state, reply)
-    CheckHttp -> handle_check_http(state)
+    Check -> handle_check(state)
+    CheckFinished(result) -> handle_check_finished(state, result)
   }
 }
 
-fn handle_check_http(state: State) -> actor.Next(State, Message) {
-  let observation = case check_http(state.endpoint) {
-    Ok(record) -> record
+fn handle_check(state: State) -> actor.Next(State, Message) {
+  let subject = state.subject
+  let assert Ok(req) = request.to(state.endpoint.url)
+
+  process.spawn_unlinked(fn() {
+    // gatus는 서비스마다 시간을 다르게 설정할수 있던데 거기까지는 안해도 될듯
+    let timeout = 3000
+    let outcome =
+      httpc.configure()
+      |> httpc.timeout(timeout)
+      |> httpc.dispatch(req)
+    let msg = CheckFinished(outcome)
+    process.send(subject, msg)
+  })
+
+  process.send_after(state.subject, state.endpoint.interval, Check)
+  actor.continue(state)
+}
+
+fn handle_check_finished(
+  state: State,
+  outcome: Result(response.Response(String), httpc.HttpError),
+) -> actor.Next(State, Message) {
+  let State(endpoint:, ..) = state
+
+  let now = timestamp.system_time()
+  let observation = case outcome {
+    Ok(resp) -> {
+      logging.log(
+        logging.Info,
+        "HTTP response: name="
+          <> endpoint.name
+          <> " status="
+          <> int.to_string(resp.status),
+      )
+      Responded(status: resp.status, at: now)
+    }
     Error(error) -> {
-      echo error
-      Unreachable(error: error, checked_at: timestamp.system_time())
+      logging.log(
+        logging.Error,
+        "HTTP error: name="
+          <> endpoint.name
+          <> " error="
+          <> string.inspect(error),
+      )
+      Unreachable(error: error, at: now)
     }
   }
 
   let histories = [observation, ..state.histories] |> list.take(10)
   let state = State(..state, histories: histories)
-
-  process.send_after(state.subject, state.endpoint.interval, CheckHttp)
   actor.continue(state)
-}
-
-fn check_http(endpoint: Endpoint) {
-  let assert Ok(req) = request.to(endpoint.url)
-  use resp <- result.try(httpc.send(req))
-  let now = timestamp.system_time()
-
-  logging.log(
-    logging.Info,
-    "HTTP response: name="
-      <> endpoint.name
-      <> " status="
-      <> int.to_string(resp.status),
-  )
-  let result = Responded(status: resp.status, checked_at: now)
-  Ok(result)
 }
 
 fn handle_get_state(
@@ -98,8 +121,8 @@ pub fn new(endpoints: List(Endpoint)) -> EndpointRegistry {
   let workers =
     endpoints
     |> list.fold(dict.new(), fn(workers, endpoint) {
-      let worker =
-        Worker(endpoint: endpoint, name: process.new_name("uptime_worker"))
+      let prefix = "uptime_worker_" <> endpoint.name
+      let worker = Worker(endpoint: endpoint, name: process.new_name(prefix))
       dict.insert(workers, endpoint.name, worker)
     })
 
@@ -128,48 +151,12 @@ pub fn states(
 
   list.map(requests, fn(request) {
     let #(name, reply) = request
-    let result = case process.receive(reply, 1000) {
+    let state = case process.receive(reply, 1000) {
       Ok(result) -> result
       Error(_) -> Error(Nil)
     }
-    #(name, result)
+    #(name, state)
   })
-}
-
-pub fn state_to_json(state: State) -> json.Json {
-  let active = case state.histories {
-    [Responded(..), ..] -> True
-    _ -> False
-  }
-
-  json.object([
-    #("name", json.string(state.endpoint.name)),
-    #("active", json.bool(active)),
-    #("history", json.array(state.histories, of: observation_to_json)),
-  ])
-}
-
-fn observation_to_json(observation: HttpObservation) -> json.Json {
-  case observation {
-    Responded(status, checked_at) ->
-      json.object([
-        #("active", json.bool(True)),
-        #("http_status", json.int(status)),
-        #(
-          "checked_at",
-          json.string(timestamp.to_rfc3339(checked_at, duration.seconds(0))),
-        ),
-      ])
-    Unreachable(error, checked_at) ->
-      json.object([
-        #("active", json.bool(False)),
-        #("error", json.string(string.inspect(error))),
-        #(
-          "checked_at",
-          json.string(timestamp.to_rfc3339(checked_at, duration.seconds(0))),
-        ),
-      ])
-  }
 }
 
 fn get_state(name: process.Name(Message)) -> State {
@@ -198,7 +185,7 @@ fn start_supervisor(registry: EndpointRegistry) {
 
 fn start_worker(worker: Worker) {
   actor.new_with_initialiser(1000, fn(subject) {
-    process.send(subject, CheckHttp)
+    process.send(subject, Check)
 
     let initial = State(subject:, endpoint: worker.endpoint, histories: [])
     Ok(actor.initialised(initial) |> actor.returning(subject))
