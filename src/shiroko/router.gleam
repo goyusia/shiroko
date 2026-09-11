@@ -3,8 +3,8 @@ import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
 import shiroko/web
-import shiroko/web/system
 import shiroko/web/webhook
+import shiroko/web/zpage
 import uptime/router as uptime_router
 import uptime/uptime
 import wisp.{type Request, type Response}
@@ -21,10 +21,10 @@ pub fn handle_request(
     ["api", "uptime", service] ->
       uptime_router.api_show(req, service, uptime_registry)
     ["webhook", "github"] -> webhook.github(req)
-    ["healthz"] -> system.healthz(req)
-    ["readyz"] -> system.readyz(req)
-    ["startupz"] -> system.startupz(req)
-    ["version"] -> system.version(req)
+    ["healthz"] -> zpage.healthz(req)
+    ["readyz"] -> zpage.readyz(req)
+    ["startupz"] -> zpage.startupz(req)
+    ["version"] -> zpage.version(req)
     _ -> wisp.not_found()
   }
 }
