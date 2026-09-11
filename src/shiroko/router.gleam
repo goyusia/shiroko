@@ -1,23 +1,21 @@
 import foundation/page
 import lustre/attribute
-import lustre/element
+import lustre/element.{type Element}
 import lustre/element/html.{html}
 import shiroko/web
 import shiroko/web/ops
 import shiroko/web/webhook
 import shiroko/web/zpage
 import uptime/router as uptime_router
-import uptime/uptime
 import wisp.{type Request, type Response}
 
-pub fn handle_request(
-  uptime_registry: uptime.EndpointRegistry,
-  req: Request,
-) -> Response {
+pub fn handle_request(req: Request, context: web.Context) -> Response {
   use _req <- web.middleware(req)
 
+  let web.Context(uptime_registry:) = context
+
   case wisp.path_segments(req) {
-    [] -> index(req)
+    [] -> page_index(req)
     ["uptime"] -> uptime_router.page_list(req, uptime_registry)
     ["api", "uptime", service] ->
       uptime_router.api_show(req, service, uptime_registry)
@@ -31,16 +29,18 @@ pub fn handle_request(
   }
 }
 
-fn index(_req: Request) -> Response {
-  let html =
-    html([], [
-      page.view_head("shiroko"),
-      html.body([], [
-        html.h1([], [html.text("shiroko")]),
-        html.a([attribute.href("/uptime")], [html.text("uptime")]),
-      ]),
-    ])
+fn view_index() -> Element(message) {
+  html([], [
+    page.view_head("shiroko"),
+    html.body([], [
+      html.h1([], [html.text("shiroko")]),
+      html.a([attribute.href("/uptime")], [html.text("uptime")]),
+    ]),
+  ])
+}
 
-  let body = html |> element.to_document_string
-  wisp.html_response(body, 200)
+fn page_index(_req: Request) -> Response {
+  view_index()
+  |> element.to_document_string
+  |> wisp.html_response(200)
 }

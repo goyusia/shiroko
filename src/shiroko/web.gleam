@@ -1,15 +1,10 @@
+import uptime/uptime
 import wisp
 
-/// The middleware stack that the request handler uses. The stack is itself a
-/// middleware function!
-///
-/// Middleware wrap each other, so the request travels through the stack from
-/// top to bottom until it reaches the request handler, at which point the
-/// response travels back up through the stack.
-///
-/// The middleware used here are the ones that are suitable for use in your
-/// typical web application.
-///
+pub type Context {
+  Context(uptime_registry: uptime.EndpointRegistry)
+}
+
 pub fn middleware(
   req: wisp.Request,
   handle_request: fn(wisp.Request) -> wisp.Response,
