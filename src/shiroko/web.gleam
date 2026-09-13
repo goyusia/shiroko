@@ -1,8 +1,8 @@
-import uptime/uptime
+import uptime/uptime.{type EndpointRegistry}
 import wisp
 
 pub type Context {
-  Context(static_directory: String, uptime_registry: uptime.EndpointRegistry)
+  Context(static_directory: String, uptime_registry: EndpointRegistry)
 }
 
 pub fn middleware(

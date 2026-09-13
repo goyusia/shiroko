@@ -2,14 +2,14 @@ import foundation/page
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html.{html}
-import shiroko/web
+import shiroko/web.{type Context}
 import shiroko/web/ops
 import shiroko/web/webhook
 import shiroko/web/zpage
 import uptime/router as uptime_router
 import wisp.{type Request, type Response}
 
-pub fn handle_request(req: Request, ctx: web.Context) -> Response {
+pub fn handle_request(req: Request, ctx: Context) -> Response {
   use _req <- web.middleware(req, ctx)
 
   let web.Context(

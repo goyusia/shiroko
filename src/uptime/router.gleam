@@ -9,10 +9,10 @@ import gleam/time/timestamp
 import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
-import uptime/uptime
+import uptime/uptime.{type EndpointRegistry, type HttpObservation, type State}
 import wisp.{type Request, type Response}
 
-pub fn page_list(_req: Request, registry: uptime.EndpointRegistry) -> Response {
+pub fn page_list(_req: Request, registry: EndpointRegistry) -> Response {
   let endpoints =
     uptime.states(registry)
     |> list.map(fn(result) {
@@ -48,7 +48,7 @@ pub fn page_list(_req: Request, registry: uptime.EndpointRegistry) -> Response {
 pub fn api_show(
   req: Request,
   name: String,
-  registry: uptime.EndpointRegistry,
+  registry: EndpointRegistry,
 ) -> Response {
   use <- wisp.require_method(req, http.Get)
 
@@ -65,7 +65,7 @@ pub fn api_show(
   }
 }
 
-fn state_to_json(state: uptime.State) -> json.Json {
+fn state_to_json(state: State) -> json.Json {
   let active = case state.histories {
     [uptime.Responded(..), ..] -> True
     _ -> False
@@ -78,7 +78,7 @@ fn state_to_json(state: uptime.State) -> json.Json {
   ])
 }
 
-fn observation_to_json(observation: uptime.HttpObservation) -> json.Json {
+fn observation_to_json(observation: HttpObservation) -> json.Json {
   case observation {
     uptime.Responded(status, at) ->
       json.object([

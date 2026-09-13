@@ -4,8 +4,8 @@ import gleam/otp/static_supervisor as supervisor
 import logging
 import mist
 import shiroko/router
-import shiroko/web
-import uptime/uptime
+import shiroko/web.{type Context}
+import uptime/uptime.{type EndpointRegistry}
 import wisp
 import wisp/wisp_mist
 
@@ -30,7 +30,7 @@ pub fn start(wrap_reload) {
   |> supervisor.start()
 }
 
-fn start_web(wrap_reload, ctx: web.Context) {
+fn start_web(wrap_reload, ctx: Context) {
   wisp.configure_logger()
 
   // Here we generate a secret key, but in a real application you would want to
@@ -60,7 +60,7 @@ pub fn static_directory() -> String {
   priv_directory <> "/static"
 }
 
-fn new_uptime() -> uptime.EndpointRegistry {
+fn new_uptime() -> EndpointRegistry {
   let host = "http://ichika"
   // let host = "http://127.0.0.1"
   let interval = 60_000

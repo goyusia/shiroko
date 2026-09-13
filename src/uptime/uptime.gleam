@@ -1,8 +1,8 @@
 import gleam/dict
 import gleam/erlang/process.{type Subject}
 import gleam/http/request
-import gleam/http/response
-import gleam/httpc
+import gleam/http/response.{type Response}
+import gleam/httpc.{type HttpError}
 import gleam/int
 import gleam/list
 import gleam/otp/actor
@@ -10,7 +10,7 @@ import gleam/otp/static_supervisor as supervisor
 import gleam/otp/supervision
 import gleam/result
 import gleam/string
-import gleam/time/timestamp
+import gleam/time/timestamp.{type Timestamp}
 import logging
 
 pub type Endpoint {
@@ -18,8 +18,8 @@ pub type Endpoint {
 }
 
 pub type HttpObservation {
-  Responded(status: Int, at: timestamp.Timestamp)
-  Unreachable(error: httpc.HttpError, at: timestamp.Timestamp)
+  Responded(status: Int, at: Timestamp)
+  Unreachable(error: HttpError, at: Timestamp)
 }
 
 type Worker {
@@ -32,7 +32,7 @@ pub opaque type EndpointRegistry {
 
 pub type State {
   State(
-    subject: process.Subject(Message),
+    subject: Subject(Message),
     endpoint: Endpoint,
     histories: List(HttpObservation),
   )
@@ -41,7 +41,7 @@ pub type State {
 pub type Message {
   GetState(Subject(State))
   Check
-  CheckFinished(Result(response.Response(String), httpc.HttpError))
+  CheckFinished(Result(Response(String), HttpError))
 }
 
 fn handle_message(
@@ -76,7 +76,7 @@ fn handle_check(state: State) -> actor.Next(State, Message) {
 
 fn handle_check_finished(
   state: State,
-  outcome: Result(response.Response(String), httpc.HttpError),
+  outcome: Result(Response(String), HttpError),
 ) -> actor.Next(State, Message) {
   let State(endpoint:, ..) = state
 
