@@ -9,17 +9,17 @@ import gleam/time/timestamp
 import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
-import uptime/uptime.{type EndpointRegistry, type HttpObservation, type State}
+import uptime/health.{type EndpointRegistry, type HttpObservation, type State}
 import wisp.{type Request, type Response}
 
 pub fn page_list(_req: Request, registry: EndpointRegistry) -> Response {
   let endpoints =
-    uptime.states(registry)
+    health.states(registry)
     |> list.map(fn(result) {
       case result {
         #(name, Ok(state)) -> {
           let active = case state.histories {
-            [uptime.Responded(..), ..] -> "active"
+            [health.Responded(..), ..] -> "active"
             _ -> "inactive"
           }
           let link = "/api/uptime/" <> name
@@ -52,7 +52,7 @@ pub fn api_show(
 ) -> Response {
   use <- wisp.require_method(req, http.Get)
 
-  case uptime.state(registry, name) {
+  case health.state(registry, name) {
     Error(_) ->
       http_json.error_json("endpoint not found: " <> name)
       |> json.to_string
@@ -67,7 +67,7 @@ pub fn api_show(
 
 fn state_to_json(state: State) -> json.Json {
   let active = case state.histories {
-    [uptime.Responded(..), ..] -> True
+    [health.Responded(..), ..] -> True
     _ -> False
   }
 
@@ -80,13 +80,13 @@ fn state_to_json(state: State) -> json.Json {
 
 fn observation_to_json(observation: HttpObservation) -> json.Json {
   case observation {
-    uptime.Responded(status, at) ->
+    health.Responded(status, at) ->
       json.object([
         #("active", json.bool(True)),
         #("http_status", json.int(status)),
         #("at", json.string(timestamp.to_rfc3339(at, duration.seconds(0)))),
       ])
-    uptime.Unreachable(error, at) ->
+    health.Unreachable(error, at) ->
       json.object([
         #("active", json.bool(False)),
         #("error", json.string(string.inspect(error))),

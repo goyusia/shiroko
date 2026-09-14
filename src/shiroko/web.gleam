@@ -1,4 +1,4 @@
-import uptime/uptime.{type EndpointRegistry}
+import uptime.{type EndpointRegistry}
 import wisp
 
 pub type Context {

@@ -5,7 +5,7 @@ import logging
 import mist
 import shiroko/router
 import shiroko/web.{type Context}
-import uptime/uptime.{type EndpointRegistry}
+import uptime.{type EndpointRegistry}
 import wisp
 import wisp/wisp_mist
 
@@ -17,7 +17,7 @@ pub fn start(wrap_reload) {
   |> dot.set_debug(False)
   |> dot.load
 
-  let uptime_registry = new_uptime()
+  let uptime_registry = new_uptime_registry()
   let context =
     web.Context(
       uptime_registry: uptime_registry,
@@ -60,20 +60,16 @@ pub fn static_directory() -> String {
   priv_directory <> "/static"
 }
 
-fn new_uptime() -> EndpointRegistry {
+fn new_uptime_registry() -> EndpointRegistry {
   let host = "http://ichika"
   // let host = "http://127.0.0.1"
   let interval = 60_000
 
   let endpoints = [
-    uptime.Http(name: "nginx", url: host, interval: interval),
-    uptime.Http(
-      name: "pi-hole",
-      url: host <> ":8089/admin/",
-      interval: interval,
-    ),
-    uptime.Http(name: "calibre", url: host <> ":8083/login", interval: interval),
-    uptime.Http(name: "dagu", url: host <> ":8525/login", interval: interval),
+    uptime.http("nginx", host, interval),
+    uptime.http("pi-hole", host <> ":8089/admin/", interval),
+    uptime.http("calibre", host <> ":8083/login", interval),
+    uptime.http("dagu", host <> ":8525/login", interval),
   ]
   uptime.new(endpoints)
 }
