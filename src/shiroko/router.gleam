@@ -6,7 +6,7 @@ import shiroko/web.{type Context}
 import shiroko/web/ops
 import shiroko/web/webhook
 import shiroko/web/zpage
-import uptime/router as uptime_router
+import uptime
 import wisp.{type Request, type Response}
 
 pub fn handle_request(req: Request, ctx: Context) -> Response {
@@ -19,9 +19,8 @@ pub fn handle_request(req: Request, ctx: Context) -> Response {
 
   case wisp.path_segments(req) {
     [] -> page_index(req)
-    ["uptime"] -> uptime_router.page_list(req, uptime_registry)
-    ["api", "uptime", service] ->
-      uptime_router.api_show(req, service, uptime_registry)
+    ["uptime", ..] | ["api", "uptime", ..] ->
+      uptime.handle_request(req, uptime_registry)
     ["ops", "redeploy"] -> ops.redeploy(req)
     ["webhook", "github"] -> webhook.github(req)
     ["healthz"] -> zpage.healthz(req)
