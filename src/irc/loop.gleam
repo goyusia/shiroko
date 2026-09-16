@@ -4,7 +4,19 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import irc/message
+import irc/wire
 import mug
+
+pub type Context {
+  Context(socket: mug.Socket)
+}
+
+pub fn send_message(ctx: Context, msg: message.IrcMessage) {
+  msg
+  |> message.format()
+  |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
+  |> mug.send(ctx.socket, _)
+}
 
 pub fn receive_loop(
   selector: process.Selector(mug.TcpMessage),
@@ -14,20 +26,10 @@ pub fn receive_loop(
     mug.Packet(socket, packet) -> {
       let buffer = bit_array.append(buffer, packet)
       let #(lines, buffer) = frame_lines(buffer)
-      let messages = lines |> list.map(message.parse)
 
       // TODO: 메세지 처리는 루프를 막으면 안된다
-      //
-      messages
-      |> list.each(fn(m) {
-        case m {
-          Ok(m) -> handle_message(m)
-          Error(err) -> {
-            echo err
-            Nil
-          }
-        }
-      })
+      let ctx = Context(socket)
+      list.each(lines, fn(m) { handle_line(m, ctx) })
 
       mug.receive_next_packet_as_message(socket)
       receive_loop(selector, buffer)
@@ -40,16 +42,51 @@ pub fn receive_loop(
   }
 }
 
-fn handle_message(msg: message.IrcMessage) -> Nil {
-  case msg.command {
-    "001" -> {
-      echo msg
+fn handle_line(line: String, ctx: Context) {
+  use msg <- result.try(message.parse(line))
+  let _ = case msg.command {
+    "PRIVMSG" -> handle_privmsg(msg, ctx)
+    "PING" -> {
+      let reply = message.IrcMessage(..msg, command: "PONG")
+      let _ = send_message(ctx, reply)
       Nil
     }
     _ -> {
       echo msg
       Nil
     }
+  }
+  Ok(Nil)
+}
+
+fn handle_privmsg(msg: message.IrcMessage, ctx: Context) {
+  case msg.params {
+    [_, "!ping"] -> handle_ping(msg, ctx)
+    [_, "!" <> _] -> handle_unknown(msg, ctx)
+    _ -> Nil
+  }
+}
+
+fn handle_ping(msg: message.IrcMessage, ctx: Context) {
+  case msg.params {
+    [channel, ..] -> {
+      let reply = wire.privmsg(channel, "pong")
+      let _ = send_message(ctx, reply)
+      Nil
+    }
+    _ -> Nil
+  }
+}
+
+fn handle_unknown(msg: message.IrcMessage, ctx: Context) {
+  case msg.params {
+    [channel, first, ..] -> {
+      let text = "unknown command: " <> first
+      let reply = wire.privmsg(channel, text)
+      let _ = send_message(ctx, reply)
+      Nil
+    }
+    _ -> Nil
   }
 }
 

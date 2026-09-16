@@ -1,6 +1,7 @@
 import dot_env as dot
 import dot_env/env
 import gleam/otp/static_supervisor as supervisor
+import irc
 import logging
 import mist
 import shiroko/router
@@ -23,6 +24,9 @@ pub fn start(wrap_reload) {
       uptime_registry: uptime_registry,
       static_directory: static_directory(),
     )
+
+  // TODO: supervisor 체제로는 아직 전환 안함
+  irc.start()
 
   supervisor.new(supervisor.OneForOne)
   |> supervisor.add(uptime.supervised(uptime_registry))

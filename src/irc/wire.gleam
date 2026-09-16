@@ -29,6 +29,24 @@ pub fn user(username: String, realname: String) -> IrcMessage {
   )
 }
 
+pub fn join(channel: String) -> IrcMessage {
+  message.IrcMessage(
+    tags: dict.new(),
+    source: message.NoSource,
+    command: "JOIN",
+    params: [channel],
+  )
+}
+
+pub fn privmsg(channel: String, text: String) -> IrcMessage {
+  message.IrcMessage(
+    tags: dict.new(),
+    source: message.NoSource,
+    command: "PRIVMSG",
+    params: [channel, text],
+  )
+}
+
 pub fn motd(server: Option(String)) -> IrcMessage {
   let params =
     server
