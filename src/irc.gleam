@@ -1,7 +1,6 @@
 import gleam/bit_array
 import gleam/erlang/process
-import gleam/list
-import gleam/string
+import irc/loop
 import irc/message
 import irc/wire
 import mug
@@ -33,34 +32,5 @@ pub fn start() {
     |> mug.select_tcp_messages(fn(msg) { msg })
 
   mug.receive_next_packet_as_message(socket)
-  receive_loop(selector, <<>>)
-}
-
-fn receive_loop(selector: process.Selector(mug.TcpMessage), buffer: BitArray) {
-  case process.selector_receive_forever(selector) {
-    mug.Packet(socket, packet) -> {
-      let buffer = bit_array.append(buffer, packet)
-
-      let assert Ok(data) = bit_array.to_string(packet)
-      let lines =
-        data
-        |> string.split("\r\n")
-        |> list.filter(fn(line) { line != "" })
-
-      echo "-----"
-      echo lines
-      echo data
-      echo "-----"
-      // let assert Ok(message) = message.parse(line)
-      // echo message
-
-      mug.receive_next_packet_as_message(socket)
-      receive_loop(selector, buffer)
-    }
-    mug.SocketClosed(_socket) -> Nil
-    mug.TcpError(_socket, error) -> {
-      echo error
-      Nil
-    }
-  }
+  loop.receive_loop(selector, <<>>)
 }
