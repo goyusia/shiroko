@@ -1,16 +1,14 @@
-import gleam/dict.{type Dict}
+import gleam/dict
 import gleam/list
 import gleam/result
 import gleam/string
+import irc/tags.{type Tags}
 
 pub type Source {
   Server(servername: String)
   User(nickname: String, user: String, host: String)
   NoSource
 }
-
-pub type Tags =
-  Dict(String, String)
 
 pub type IrcMessage {
   IrcMessage(tags: Tags, source: Source, command: String, params: List(String))
@@ -42,31 +40,12 @@ fn scan_tags(line: String) -> Result(#(Tags, String), ParseError) {
   case line {
     "@" <> rest -> {
       case string.split_once(rest, " ") {
-        Ok(#(text, rest)) -> Ok(#(parse_tags(text), rest))
+        Ok(#(text, rest)) -> Ok(#(tags.parse_tags(text), rest))
         Error(_) -> Ok(#(dict.new(), rest))
       }
     }
     _ -> Ok(#(dict.new(), line))
   }
-}
-
-fn parse_tags(text: String) -> Tags {
-  string.split(text, ";")
-  |> list.map(fn(item) {
-    case string.split_once(item, "=") {
-      Ok(#(key, value)) -> #(key, unescape_tag(value))
-      Error(_) -> #(item, "")
-    }
-  })
-  |> dict.from_list()
-}
-
-fn unescape_tag(text: String) -> String {
-  text
-  // |> string.replace(each: "\\n", with: "\n")
-  // |> string.replace(each: "\\r", with: "\r")
-  |> string.replace(each: "\\s", with: " ")
-  |> string.replace(each: "\\:", with: ";")
 }
 
 fn scan_source(line: String) -> Result(#(Source, String), ParseError) {
@@ -135,11 +114,12 @@ fn params_to_string(params: List(String)) -> String {
 }
 
 pub fn format(msg: IrcMessage) -> BitArray {
+  let tags = tags.tags_to_string(msg.tags)
   let source = source_to_string(msg.source)
   let params = params_to_string(msg.params)
 
   let line =
-    [source, msg.command, params]
+    [tags, source, msg.command, params]
     |> list.filter(fn(x) { x != "" })
     |> string.join(" ")
   <<line:utf8>>

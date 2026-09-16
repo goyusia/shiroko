@@ -6,5 +6,5 @@ import shiroko/server
 pub fn main() {
   irc.start()
   // let assert Ok(_) = server.start(reload.wrap)
-  // process.sleep_forever()
+  process.sleep_forever()
 }

@@ -9,6 +9,7 @@ import mug
 fn send_message(socket: mug.Socket, msg: message.IrcMessage) {
   msg
   |> message.format()
+  |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
   |> mug.send(socket, _)
 }
 
