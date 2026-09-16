@@ -1,110 +1,146 @@
+import gleam/dict.{type Dict}
 import gleam/list
-import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 
-pub type IrcMessage {
-  IrcMessage(
-    prefix: Option(String),
-    command: String,
-    params: List(String),
-    trailing: Option(String),
-  )
+pub type Source {
+  Server(servername: String)
+  User(nickname: String, user: String, host: String)
+  NoSource
 }
 
-pub fn format(msg: IrcMessage) -> BitArray {
-  let prefix =
-    msg.prefix
-    |> option.map(fn(s) { [":" <> s] })
-    |> option.unwrap([])
+pub type Tags =
+  Dict(String, String)
 
-  let trailing =
-    msg.trailing
-    |> option.map(fn(s) { [":" <> s] })
-    |> option.unwrap([])
+pub type IrcMessage {
+  IrcMessage(tags: Tags, source: Source, command: String, params: List(String))
+}
 
-  let list = list.flatten([prefix, [msg.command], msg.params, trailing])
-  let line = string.join(list, " ") <> "\r\n"
-  <<line:utf8>>
+pub fn new(
+  tags: Tags,
+  source: Source,
+  command: String,
+  params: List(String),
+) -> IrcMessage {
+  IrcMessage(tags: tags, source: source, command: command, params: params)
 }
 
 pub type ParseError {
-  ParseError
-}
-
-pub type ScanState(a) {
-  ScanState(value: a, rest: String)
+  InvalidSource
+  InvalidCommand
 }
 
 pub fn parse(line: String) -> Result(IrcMessage, ParseError) {
-  let ScanState(prefix, line) = scan_prefix(line)
-  use ScanState(command, line) <- result.try(scan_command(line))
-  let ScanState(params, line) = scan_params(line)
-  let trailing = scan_trailing(line)
-  Ok(IrcMessage(prefix, command, params, trailing))
+  use #(tags, line) <- result.try(scan_tags(line))
+  use #(source, line) <- result.try(scan_source(line))
+  use #(command, params) <- result.try(scan_invocation(line))
+  let message = IrcMessage(tags:, source:, command:, params:)
+  Ok(message)
 }
 
-pub fn scan_prefix(line: String) -> ScanState(Option(String)) {
-  case string.split_once(line, " ") {
-    Ok(#(":" <> s, tail)) -> ScanState(Some(s), tail)
-    Ok(#(_, _tail)) -> ScanState(None, line)
-    Error(_) -> ScanState(None, line)
-  }
-}
-
-pub fn scan_command(line: String) -> Result(ScanState(String), ParseError) {
-  case line, string.split_once(line, " ") {
-    "", _ -> Error(ParseError)
-    _, Ok(#(command, tail)) -> Ok(ScanState(command, tail))
-    _, Error(_) -> Ok(ScanState(line, ""))
-  }
-}
-
-pub fn scan_params(line: String) -> ScanState(List(String)) {
+fn scan_tags(line: String) -> Result(#(Tags, String), ParseError) {
   case line {
-    "" -> ScanState([], "")
-    _ -> {
-      let ScanState(acc, line) = parse_params_rec(line, [])
-      ScanState(list.reverse(acc), line)
+    "@" <> rest -> {
+      case string.split_once(rest, " ") {
+        Ok(#(text, rest)) -> Ok(#(parse_tags(text), rest))
+        Error(_) -> Ok(#(dict.new(), rest))
+      }
+    }
+    _ -> Ok(#(dict.new(), line))
+  }
+}
+
+fn parse_tags(text: String) -> Tags {
+  string.split(text, ";")
+  |> list.map(fn(item) {
+    case string.split_once(item, "=") {
+      Ok(#(key, value)) -> #(key, unescape_tag(value))
+      Error(_) -> #(item, "")
+    }
+  })
+  |> dict.from_list()
+}
+
+fn unescape_tag(text: String) -> String {
+  text
+  // |> string.replace(each: "\\n", with: "\n")
+  // |> string.replace(each: "\\r", with: "\r")
+  |> string.replace(each: "\\s", with: " ")
+  |> string.replace(each: "\\:", with: ";")
+}
+
+fn scan_source(line: String) -> Result(#(Source, String), ParseError) {
+  case line {
+    ":" <> rest -> {
+      case string.split_once(rest, " ") {
+        Ok(#("", _)) -> Error(InvalidSource)
+        Ok(#(source, rest)) -> Ok(#(Server(source), rest))
+        Error(_) -> Error(InvalidSource)
+      }
+    }
+    _ -> Ok(#(NoSource, line))
+  }
+}
+
+fn scan_invocation(
+  line: String,
+) -> Result(#(String, List(String)), ParseError) {
+  case split_invocation(line) {
+    [command, ..params] -> Ok(#(command, params))
+    _ -> Error(InvalidCommand)
+  }
+}
+
+fn split_invocation(line: String) -> List(String) {
+  case string.split_once(line, " :") {
+    Ok(#(head, trailing)) -> {
+      let items = split_params_fixed(head)
+      list.append(items, [trailing])
+    }
+    Error(_) -> split_params_fixed(line)
+  }
+}
+
+fn split_params_fixed(line: String) -> List(String) {
+  line
+  |> string.split(" ")
+  |> list.filter(fn(s) { s != "" })
+}
+
+fn source_to_string(source: Source) -> String {
+  case source {
+    Server(servername) -> ":" <> servername
+    User(nickname, user, host) -> ":" <> nickname <> "!" <> user <> "@" <> host
+    NoSource -> ""
+  }
+}
+
+fn is_trailing(param: String) -> Bool {
+  param == "" || string.contains(param, " ") || string.starts_with(param, ":")
+}
+
+fn params_to_string(params: List(String)) -> String {
+  let tokens = case list.last(params) {
+    Error(_) -> []
+    Ok(last) -> {
+      let prefix = list.take(params, list.length(params) - 1)
+      let last = case is_trailing(last) {
+        True -> ":" <> last
+        False -> last
+      }
+      list.append(prefix, [last])
     }
   }
+  string.join(tokens, " ")
 }
 
-fn parse_params_rec(
-  line: String,
-  acc: List(String),
-) -> ScanState(List(String)) {
-  case string.split_once(line, " ") {
-    Ok(#(":" <> _, _tail)) -> ScanState(acc, line)
-    Ok(#(head, tail)) -> parse_params_rec(tail, [head, ..acc])
-    Error(_) ->
-      case line {
-        ":" <> _ -> ScanState(acc, line)
-        _ -> ScanState([line, ..acc], "")
-      }
-  }
-}
+pub fn format(msg: IrcMessage) -> BitArray {
+  let source = source_to_string(msg.source)
+  let params = params_to_string(msg.params)
 
-pub fn scan_trailing(line: String) -> Option(String) {
-  case line {
-    ":" <> s -> Some(s)
-    _ -> None
-  }
-}
-
-pub fn pass_message(password: String) -> IrcMessage {
-  IrcMessage(prefix: None, command: "PASS", params: [password], trailing: None)
-}
-
-pub fn nick_message(nickname: String) -> IrcMessage {
-  IrcMessage(prefix: None, command: "NICK", params: [nickname], trailing: None)
-}
-
-pub fn user_message(username: String, realname: String) -> IrcMessage {
-  IrcMessage(
-    prefix: None,
-    command: "USER",
-    params: [username, "0", "*"],
-    trailing: Some(realname),
-  )
+  let line =
+    [source, msg.command, params]
+    |> list.filter(fn(x) { x != "" })
+    |> string.join(" ")
+  <<line:utf8>>
 }

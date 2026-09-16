@@ -1,30 +1,31 @@
-import gleam/option.{type Option, None, Some}
+import gleam/dict
+import gleam/option.{type Option}
 import irc/message.{type IrcMessage}
 
 pub fn pass(password: String) -> IrcMessage {
   message.IrcMessage(
-    prefix: None,
+    tags: dict.new(),
+    source: message.NoSource,
     command: "PASS",
     params: [password],
-    trailing: None,
   )
 }
 
 pub fn nick(nickname: String) -> IrcMessage {
   message.IrcMessage(
-    prefix: None,
+    tags: dict.new(),
+    source: message.NoSource,
     command: "NICK",
     params: [nickname],
-    trailing: None,
   )
 }
 
 pub fn user(username: String, realname: String) -> IrcMessage {
   message.IrcMessage(
-    prefix: None,
+    tags: dict.new(),
+    source: message.NoSource,
     command: "USER",
-    params: [username, "0", "*"],
-    trailing: Some(realname),
+    params: [username, "0", "*", realname],
   )
 }
 
@@ -33,10 +34,11 @@ pub fn motd(server: Option(String)) -> IrcMessage {
     server
     |> option.map(fn(s) { [s] })
     |> option.unwrap([])
+
   message.IrcMessage(
-    prefix: None,
+    tags: dict.new(),
+    source: message.NoSource,
     command: "MOTD",
     params: params,
-    trailing: None,
   )
 }
