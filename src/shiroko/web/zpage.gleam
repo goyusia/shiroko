@@ -1,5 +1,5 @@
 import gleam/json
-import shellout
+import uptime/status
 import wisp.{type Request, type Response}
 
 pub fn healthz(_req: Request) -> Response {
@@ -29,15 +29,9 @@ pub fn startupz(_req: Request) -> Response {
   wisp.json_response(json, 200)
 }
 
-fn get_commit_id() -> String {
-  let assert Ok(revision) =
-    shellout.command("git", ["rev-parse", "HEAD"], ".", [])
-  revision
-}
-
 pub fn version(_req: Request) -> Response {
   let name = "shiroko"
-  let revision = get_commit_id()
+  let revision = status.get_commit_id()
   let version = revision
   let built_at = "TODO"
 
