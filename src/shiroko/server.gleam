@@ -1,7 +1,7 @@
+import bot
 import dot_env as dot
 import dot_env/env
 import gleam/otp/static_supervisor as supervisor
-import irc
 import logging
 import mist
 import shiroko/router
@@ -10,13 +10,18 @@ import uptime.{type EndpointRegistry}
 import wisp
 import wisp/wisp_mist
 
-pub fn start(wrap_reload) {
+pub fn start(wrap_reload, bot_config: bot.Config) {
   logging.configure()
   logging.set_level(logging.Info)
 
   dot.new()
   |> dot.set_debug(False)
   |> dot.load
+
+  // let assert Ok(socket) =
+  //   mug.new(host, port: port)
+  //   |> mug.timeout(milliseconds: 500)
+  //   |> mug.connect()
 
   let uptime_registry = new_uptime_registry()
   let context =
@@ -26,7 +31,7 @@ pub fn start(wrap_reload) {
     )
 
   // TODO: supervisor 체제로는 아직 전환 안함
-  irc.start()
+  bot.start(bot_config)
 
   supervisor.new(supervisor.OneForOne)
   |> supervisor.add(uptime.supervised(uptime_registry))
