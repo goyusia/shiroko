@@ -1,8 +1,6 @@
 import bot
-import dot_env as dot
 import dot_env/env
 import gleam/otp/static_supervisor as supervisor
-import logging
 import mist
 import shiroko/router
 import shiroko/web.{type Context}
@@ -11,13 +9,6 @@ import wisp
 import wisp/wisp_mist
 
 pub fn start(wrap_reload, bot_config: bot.Config) {
-  logging.configure()
-  logging.set_level(logging.Info)
-
-  dot.new()
-  |> dot.set_debug(False)
-  |> dot.load
-
   // let assert Ok(socket) =
   //   mug.new(host, port: port)
   //   |> mug.timeout(milliseconds: 500)
@@ -40,8 +31,6 @@ pub fn start(wrap_reload, bot_config: bot.Config) {
 }
 
 fn start_web(wrap_reload, ctx: Context) {
-  wisp.configure_logger()
-
   // Here we generate a secret key, but in a real application you would want to
   // load this from somewhere so that it is not regenerated on every restart.
   let secret_key_base = wisp.random_string(64)

@@ -35,17 +35,15 @@ fn execute(config: Config) {
 
   let sender =
     plugin.Sender(respond: fn(msg) {
-      let _ =
-        msg
-        |> message.to_string()
-        |> bit_array.from_string()
-        |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
-        |> mug.send(socket, _)
-      Nil
+      msg
+      |> message.to_string()
+      |> bit_array.from_string()
+      |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
+      |> mug.send(socket, _)
     })
 
-  let ctx = loop.Context(socket: socket, buffer: <<>>, sender:)
-  let send = loop.send_message(ctx, _)
+  let ctx = loop.State(socket: socket, buffer: <<>>, sender:)
+  let send = sender.respond
 
   assert nick(config.nickname) |> send == Ok(Nil)
   assert user(config.nickname, config.realname) |> send == Ok(Nil)

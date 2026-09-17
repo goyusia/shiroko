@@ -1,9 +1,10 @@
 import irc
 import irc/message
 import irc/tag
+import mug
 
 pub type Sender {
-  Sender(respond: fn(irc.Message) -> Nil)
+  Sender(respond: fn(irc.Message) -> Result(Nil, mug.Error))
 }
 
 fn privmsg(channel: String, text: String) -> irc.Message {
@@ -19,7 +20,7 @@ pub fn dispatch(msg: message.Message, sender: Sender) {
   case msg.params {
     [_, "!ping"] -> handle_ping(msg, sender)
     [_, "!" <> _rest] -> handle_unknown(msg, sender)
-    _ -> Nil
+    _ -> Ok(Nil)
   }
 }
 
@@ -29,7 +30,7 @@ fn handle_ping(msg: message.Message, sender: Sender) {
       let reply = privmsg(channel, "pong")
       sender.respond(reply)
     }
-    _ -> Nil
+    _ -> Ok(Nil)
   }
 }
 
@@ -40,6 +41,6 @@ fn handle_unknown(msg: message.Message, sender: Sender) {
       let reply = privmsg(channel, text)
       sender.respond(reply)
     }
-    _ -> Nil
+    _ -> Ok(Nil)
   }
 }
