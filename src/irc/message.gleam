@@ -2,7 +2,7 @@ import gleam/dict
 import gleam/list
 import gleam/result
 import gleam/string
-import irc/tags.{type Tags}
+import irc/tag.{type Tags}
 
 pub type Source {
   Server(servername: String)
@@ -10,17 +10,17 @@ pub type Source {
   NoSource
 }
 
-pub type IrcMessage {
-  IrcMessage(tags: Tags, source: Source, command: String, params: List(String))
+pub type Message {
+  Message(command: String, params: List(String), source: Source, tags: Tags)
 }
 
 pub fn new(
-  tags: Tags,
-  source: Source,
-  command: String,
-  params: List(String),
-) -> IrcMessage {
-  IrcMessage(tags: tags, source: source, command: command, params: params)
+  command command: String,
+  params params: List(String),
+  source source: Source,
+  tags tags: Tags,
+) -> Message {
+  Message(command: command, params: params, source: source, tags: tags)
 }
 
 pub type ParseError {
@@ -28,11 +28,11 @@ pub type ParseError {
   InvalidCommand
 }
 
-pub fn parse(line: String) -> Result(IrcMessage, ParseError) {
+pub fn parse(line: String) -> Result(Message, ParseError) {
   use #(tags, line) <- result.try(scan_tags(line))
   use #(source, line) <- result.try(scan_source(line))
   use #(command, params) <- result.try(scan_invocation(line))
-  let message = IrcMessage(tags:, source:, command:, params:)
+  let message = Message(tags:, source:, command:, params:)
   Ok(message)
 }
 
@@ -40,7 +40,7 @@ fn scan_tags(line: String) -> Result(#(Tags, String), ParseError) {
   case line {
     "@" <> rest -> {
       case string.split_once(rest, " ") {
-        Ok(#(text, rest)) -> Ok(#(tags.parse_tags(text), rest))
+        Ok(#(text, rest)) -> Ok(#(tag.parse_tags(text), rest))
         Error(_) -> Ok(#(dict.new(), rest))
       }
     }
@@ -113,14 +113,12 @@ fn params_to_string(params: List(String)) -> String {
   string.join(tokens, " ")
 }
 
-pub fn format(msg: IrcMessage) -> BitArray {
-  let tags = tags.tags_to_string(msg.tags)
+pub fn to_string(msg: Message) -> String {
+  let tags = tag.to_string(msg.tags)
   let source = source_to_string(msg.source)
   let params = params_to_string(msg.params)
 
-  let line =
-    [tags, source, msg.command, params]
-    |> list.filter(fn(x) { x != "" })
-    |> string.join(" ")
-  <<line:utf8>>
+  [tags, source, msg.command, params]
+  |> list.filter(fn(x) { x != "" })
+  |> string.join(" ")
 }

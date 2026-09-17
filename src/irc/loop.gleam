@@ -11,9 +11,10 @@ pub type Context {
   Context(socket: mug.Socket)
 }
 
-pub fn send_message(ctx: Context, msg: message.IrcMessage) {
+pub fn send_message(ctx: Context, msg: message.Message) {
   msg
-  |> message.format()
+  |> message.to_string()
+  |> bit_array.from_string()
   |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
   |> mug.send(ctx.socket, _)
 }
@@ -47,7 +48,7 @@ fn handle_line(line: String, ctx: Context) {
   let _ = case msg.command {
     "PRIVMSG" -> handle_privmsg(msg, ctx)
     "PING" -> {
-      let reply = message.IrcMessage(..msg, command: "PONG")
+      let reply = message.Message(..msg, command: "PONG")
       let _ = send_message(ctx, reply)
       Nil
     }
@@ -59,7 +60,7 @@ fn handle_line(line: String, ctx: Context) {
   Ok(Nil)
 }
 
-fn handle_privmsg(msg: message.IrcMessage, ctx: Context) {
+fn handle_privmsg(msg: message.Message, ctx: Context) {
   case msg.params {
     [_, "!ping"] -> handle_ping(msg, ctx)
     [_, "!" <> _] -> handle_unknown(msg, ctx)
@@ -67,7 +68,7 @@ fn handle_privmsg(msg: message.IrcMessage, ctx: Context) {
   }
 }
 
-fn handle_ping(msg: message.IrcMessage, ctx: Context) {
+fn handle_ping(msg: message.Message, ctx: Context) {
   case msg.params {
     [channel, ..] -> {
       let reply = wire.privmsg(channel, "pong")
@@ -78,7 +79,7 @@ fn handle_ping(msg: message.IrcMessage, ctx: Context) {
   }
 }
 
-fn handle_unknown(msg: message.IrcMessage, ctx: Context) {
+fn handle_unknown(msg: message.Message, ctx: Context) {
   case msg.params {
     [channel, first, ..] -> {
       let text = "unknown command: " <> first

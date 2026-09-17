@@ -1,13 +1,13 @@
-import irc/tags
+import irc/tag
 
 pub fn unescape_value_test() {
-  assert tags.unescape_value("value\\1") == "value1"
-  assert tags.unescape_value("value1\\") == "value1"
+  assert tag.unescape_value("value\\1") == "value1"
+  assert tag.unescape_value("value1\\") == "value1"
 }
 
 fn assert_value(escaped: String, unescaped: String) {
-  assert tags.unescape_value(escaped) == unescaped
-  assert tags.escape_value(unescaped) == escaped
+  assert tag.unescape_value(escaped) == unescaped
+  assert tag.escape_value(unescaped) == escaped
 }
 
 pub fn scenario_test() {

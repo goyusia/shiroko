@@ -27,24 +27,26 @@ pub fn from_string_tuple_list(items: List(#(String, String))) -> Tags {
 
 pub fn parse_tags(text: String) -> Tags {
   string.split(text, ";")
-  |> list.map(fn(item) {
-    case string.split_once(item, "=") {
-      Ok(#(key, "")) -> #(key, NoTagValue)
-      Ok(#(key, value)) -> #(key, TagValue(unescape_value(value)))
-      Error(_) -> #(item, NoTagValue)
-    }
-  })
+  |> list.map(parse_tag)
   |> dict.from_list()
 }
 
-pub fn tags_to_string(tags: Tags) -> String {
-  case dict.size(tags) {
-    0 -> ""
-    _ -> tags_to_string_exists(tags)
+fn parse_tag(text: String) -> #(String, TagValue) {
+  case string.split_once(text, "=") {
+    Ok(#(key, "")) -> #(key, NoTagValue)
+    Ok(#(key, value)) -> #(key, TagValue(unescape_value(value)))
+    Error(_) -> #(text, NoTagValue)
   }
 }
 
-fn tags_to_string_exists(tags: Tags) -> String {
+pub fn to_string(tags: Tags) -> String {
+  case dict.size(tags) {
+    0 -> ""
+    _ -> to_string_exists(tags)
+  }
+}
+
+fn to_string_exists(tags: Tags) -> String {
   dict.to_list(tags)
   |> list.map(fn(t) {
     case t.1 {

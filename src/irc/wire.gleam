@@ -1,63 +1,62 @@
 import gleam/dict
 import gleam/option.{type Option}
-import irc/message.{type IrcMessage}
+import irc/message.{type Message}
 
-pub fn pass(password: String) -> IrcMessage {
-  message.IrcMessage(
-    tags: dict.new(),
-    source: message.NoSource,
+pub fn pass(password: String) -> Message {
+  message.Message(
     command: "PASS",
     params: [password],
+    source: message.NoSource,
+    tags: dict.new(),
   )
 }
 
-pub fn nick(nickname: String) -> IrcMessage {
-  message.IrcMessage(
-    tags: dict.new(),
-    source: message.NoSource,
+pub fn nick(nickname: String) -> Message {
+  message.Message(
     command: "NICK",
     params: [nickname],
+    source: message.NoSource,
+    tags: dict.new(),
   )
 }
 
-pub fn user(username: String, realname: String) -> IrcMessage {
-  message.IrcMessage(
-    tags: dict.new(),
-    source: message.NoSource,
+pub fn user(username: String, realname: String) -> Message {
+  message.Message(
     command: "USER",
     params: [username, "0", "*", realname],
+    source: message.NoSource,
+    tags: dict.new(),
   )
 }
 
-pub fn join(channel: String) -> IrcMessage {
-  message.IrcMessage(
-    tags: dict.new(),
-    source: message.NoSource,
+pub fn join(channel: String) -> Message {
+  message.Message(
     command: "JOIN",
     params: [channel],
+    source: message.NoSource,
+    tags: dict.new(),
   )
 }
 
-pub fn privmsg(channel: String, text: String) -> IrcMessage {
-  message.IrcMessage(
-    tags: dict.new(),
-    source: message.NoSource,
+pub fn privmsg(channel: String, text: String) -> Message {
+  message.Message(
     command: "PRIVMSG",
     params: [channel, text],
+    source: message.NoSource,
+    tags: dict.new(),
   )
 }
 
-pub fn motd(server: Option(String)) -> IrcMessage {
+pub fn motd(server: Option(String)) -> Message {
   let params =
     server
     |> option.map(fn(s) { [s] })
     |> option.unwrap([])
 
-  message.IrcMessage(
-    tags: dict.new(),
-    source: message.NoSource,
+  message.Message(
     command: "MOTD",
     params: params,
+    source: message.NoSource,
+    tags: dict.new(),
   )
-
 }

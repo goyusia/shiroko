@@ -1,6 +1,6 @@
-import gleam/option.{type Option, None, Some}
 import gleam/bit_array
 import gleam/list
+import gleam/option.{type Option, None, Some}
 
 pub fn extract_lines(buffer: BitArray) -> #(List(String), BitArray) {
   let #(lines, rest) = extract_lines_loop(buffer, [])
