@@ -1,7 +1,7 @@
-import logging
-import dot_env as dot
 import bot
+import dot_env as dot
 import gleam/erlang/process
+import logging
 import shiroko/server
 
 pub fn main() {

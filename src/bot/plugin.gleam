@@ -12,7 +12,7 @@ fn privmsg(channel: String, text: String) -> irc.Message {
     command: "PRIVMSG",
     params: [channel, text],
     source: message.NoSource,
-    tags: tag.new(),
+    tags: tag.new_tags(),
   )
 }
 

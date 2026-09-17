@@ -17,7 +17,7 @@ pub fn to_string_test() {
         "한글 메시지",
       ],
       source: Server("hello"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
     |> message.to_string()
   assert m == ":hello PRIVMSG #foo bar :한글 메시지"
@@ -27,7 +27,7 @@ pub fn to_string_test() {
       command: "PRIVMSG",
       params: ["#foo", "bar"],
       source: NoSource,
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
     |> message.to_string()
   assert m == "PRIVMSG #foo bar"
@@ -41,7 +41,7 @@ pub fn parse_simple_test() {
       command: "foo",
       params: ["bar", "baz", "asdf"],
       source: NoSource,
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -53,7 +53,7 @@ pub fn parse_with_source_test() {
       command: "foo",
       params: ["bar", "baz", "asdf"],
       source: Server("coolguy"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -65,7 +65,7 @@ pub fn parse_with_trailing_param_test() {
       command: "foo",
       params: ["bar", "baz", "asdf quux"],
       source: NoSource,
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -75,7 +75,7 @@ pub fn parse_with_trailing_param_test() {
       command: "foo",
       params: ["bar", "baz", ""],
       source: NoSource,
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -85,7 +85,7 @@ pub fn parse_with_trailing_param_test() {
       command: "foo",
       params: ["bar", "baz", ":asdf"],
       source: NoSource,
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -101,7 +101,7 @@ pub fn parse_with_source_and_trailing_param_test() {
         "asdf quux",
       ],
       source: Server("coolguy"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -115,7 +115,7 @@ pub fn parse_with_source_and_trailing_param_test() {
         "  asdf quux ",
       ],
       source: Server("coolguy"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -125,7 +125,7 @@ pub fn parse_with_source_and_trailing_param_test() {
       command: "PRIVMSG",
       params: ["bar", "lol :) "],
       source: Server("coolguy"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -135,7 +135,7 @@ pub fn parse_with_source_and_trailing_param_test() {
       command: "foo",
       params: ["bar", "baz", ""],
       source: Server("coolguy"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -145,7 +145,7 @@ pub fn parse_with_source_and_trailing_param_test() {
       command: "foo",
       params: ["bar", "baz", "  "],
       source: Server("coolguy"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -202,7 +202,7 @@ pub fn parse_last_param_forms_test() {
       command: "JOIN",
       params: ["#chan"],
       source: Server("src"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -212,7 +212,7 @@ pub fn parse_last_param_forms_test() {
       command: "JOIN",
       params: ["#chan"],
       source: Server("src"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -222,7 +222,7 @@ pub fn parse_last_param_forms_test() {
       command: "AWAY",
       params: [],
       source: Server("src"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -232,7 +232,7 @@ pub fn parse_last_param_forms_test() {
       command: "AWAY",
       params: [],
       source: Server("src"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -244,7 +244,7 @@ pub fn parse_tab_in_source_test() {
       command: "foo",
       params: ["bar", "baz"],
       source: Server("cool\tguy"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -256,7 +256,7 @@ pub fn parse_control_codes_in_source_test() {
       command: "PRIVMSG",
       params: ["foo", "bar baz"],
       source: Server("coolguy!ag@net\u{03}5w\u{03}ork.admin"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -267,7 +267,7 @@ pub fn parse_control_codes_in_source_test() {
       command: "PRIVMSG",
       params: ["foo", "bar baz"],
       source: Server("coolguy!~ag@n\u{02}et\u{03}05w\u{0f}ork.admin"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -306,7 +306,7 @@ pub fn parse_full_message_test() {
         "param3 param3",
       ],
       source: Server("irc.example.com"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -331,7 +331,7 @@ pub fn parse_full_message_test() {
       command: "COMMAND",
       params: [],
       source: NoSource,
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -360,7 +360,7 @@ pub fn parse_broken_unreal_messages_test() {
         "Erroneous Nickname: Illegal characters",
       ],
       source: Server("gravel.mozilla.org"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -373,7 +373,7 @@ pub fn parse_broken_unreal_messages_test() {
         "+n",
       ],
       source: Server("gravel.mozilla.org"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -387,7 +387,7 @@ pub fn parse_broken_unreal_messages_test() {
         "foobar",
       ],
       source: Server("services.esper.net"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }
@@ -462,7 +462,7 @@ pub fn parse_mode_with_trailing_param_test() {
       command: "MODE",
       params: ["#channel", "+i"],
       source: Server("SomeOp"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 
@@ -477,7 +477,7 @@ pub fn parse_mode_with_trailing_param_test() {
         "AnotherUser",
       ],
       source: Server("SomeOp"),
-      tags: tag.new(),
+      tags: tag.new_tags(),
     )
   assert_message(line, msg)
 }

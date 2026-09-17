@@ -31,7 +31,7 @@ pub fn receive_loop(selector: process.Selector(mug.TcpMessage), state: State) {
       Nil
     }
     mug.TcpError(_socket, error) -> {
-      logging.log(logging.Error, string.inspect(error))
+      logging.log(logging.Critical, string.inspect(error))
       Nil
     }
   }
@@ -46,7 +46,7 @@ fn handle_line(line: String, sender: plugin.Sender) {
       |> sender.respond()
     }
     _ -> {
-      logging.log(logging.Debug, line)
+      logging.log(logging.Info, line)
       Ok(Nil)
     }
   }

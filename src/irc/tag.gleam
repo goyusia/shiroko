@@ -10,7 +10,7 @@ pub type TagValue {
 pub type Tags =
   Dict(String, TagValue)
 
-pub fn new() -> Tags {
+pub fn new_tags() -> Tags {
   dict.new()
 }
 

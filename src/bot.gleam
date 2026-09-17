@@ -1,12 +1,15 @@
 import bot/init
+import bot/login
 import bot/loop
 import bot/plugin
-import gleam/bit_array
+import bot/util
 import gleam/dict
 import gleam/erlang/process
 import gleam/option.{type Option}
+import gleam/result
 import irc
 import irc/message
+import logging
 import mug
 
 pub type Config =
@@ -24,7 +27,16 @@ pub fn config(
 
 // TODO: actor?
 pub fn start(config: Config) {
-  let _ = process.spawn_unlinked(fn() { execute(config) })
+  let _ =
+    process.spawn_unlinked(fn() {
+      case execute(config) {
+        Ok(_) -> Nil
+        Error(e) -> {
+          logging.log(logging.Error, e)
+          logging.log(logging.Error, "bot failed to start")
+        }
+      }
+    })
 }
 
 fn execute(config: Config) {
@@ -33,21 +45,13 @@ fn execute(config: Config) {
     |> mug.timeout(milliseconds: 500)
     |> mug.connect()
 
-  let sender =
-    plugin.Sender(respond: fn(msg) {
-      msg
-      |> message.to_string()
-      |> bit_array.from_string()
-      |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
-      |> mug.send(socket, _)
-    })
-
+  let sender = plugin.Sender(respond: util.send_single(socket, _))
   let ctx = loop.State(socket: socket, buffer: <<>>, sender:)
   let send = sender.respond
 
-  assert nick(config.nickname) |> send == Ok(Nil)
-  assert user(config.nickname, config.realname) |> send == Ok(Nil)
-  assert join(config.channel) |> send == Ok(Nil)
+  use _ <- result.try(login.login(socket, config))
+
+  assert join_message(config.channel) |> send == Ok(Nil)
 
   let selector =
     process.new_selector()
@@ -55,36 +59,10 @@ fn execute(config: Config) {
 
   mug.receive_next_packet_as_message(socket)
   loop.receive_loop(selector, ctx)
+  Ok(Nil)
 }
 
-pub fn pass(password: String) -> irc.Message {
-  message.Message(
-    command: "PASS",
-    params: [password],
-    source: message.NoSource,
-    tags: dict.new(),
-  )
-}
-
-pub fn nick(nickname: String) -> irc.Message {
-  message.Message(
-    command: "NICK",
-    params: [nickname],
-    source: message.NoSource,
-    tags: dict.new(),
-  )
-}
-
-pub fn user(username: String, realname: String) -> irc.Message {
-  message.Message(
-    command: "USER",
-    params: [username, "0", "*", realname],
-    source: message.NoSource,
-    tags: dict.new(),
-  )
-}
-
-pub fn join(channel: String) -> irc.Message {
+pub fn join_message(channel: String) -> irc.Message {
   message.Message(
     command: "JOIN",
     params: [channel],
