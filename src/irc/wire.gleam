@@ -59,4 +59,5 @@ pub fn motd(server: Option(String)) -> IrcMessage {
     command: "MOTD",
     params: params,
   )
+
 }
