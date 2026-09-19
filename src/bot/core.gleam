@@ -4,18 +4,53 @@ import gleam/set
 import irc
 import irc/message
 import irc/reader
+import irc/tag
 import logging
 import mug
 
-pub fn send_single(
-  socket: mug.Socket,
-  msg: irc.Message,
-) -> Result(Nil, mug.Error) {
+pub type IrcEndpoint {
+  IrcEndpoint(host: String, port: Int)
+}
+
+pub type IrcIdentity {
+  IrcIdentity(nickname: String, realname: String)
+}
+
+pub type Config {
+  Config(endpoint: IrcEndpoint, identity: IrcIdentity, channels: List(String))
+}
+
+pub type Error {
+  ConnectionError(mug.ConnectError)
+  SocketError(mug.Error)
+  BotError(String)
+}
+
+pub fn send_single(socket: mug.Socket, msg: irc.Message) -> Result(Nil, Error) {
   msg
   |> message.to_string()
   |> bit_array.from_string()
   |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
   |> mug.send(socket, _)
+  |> result.map_error(SocketError)
+}
+
+fn privmsg(dest: String, text: String) -> irc.Message {
+  message.Message(
+    command: "PRIVMSG",
+    params: [dest, text],
+    source: message.NoSource,
+    tags: tag.new_tags(),
+  )
+}
+
+pub fn send_line(
+  socket: mug.Socket,
+  dest: String,
+  line: String,
+) -> Result(Nil, Error) {
+  privmsg(dest, line)
+  |> send_single(socket, _)
 }
 
 pub fn receive_until_match(
@@ -31,10 +66,10 @@ fn receive_until_match_inner(
   allowlist: set.Set(String),
   denylist: set.Set(String),
   buffer: BitArray,
-) {
+) -> Result(Nil, Error) {
   use packet <- result.try(
     mug.receive(socket, timeout_milliseconds: 1000)
-    |> result.map_error(mug.describe_error),
+    |> result.map_error(SocketError),
   )
 
   let buffer = bit_array.append(buffer, packet)
@@ -50,7 +85,7 @@ fn receive_until_match_inner(
       let deny = set.contains(denylist, message.command)
       case allow, deny {
         True, _ -> Ok(Nil)
-        _, True -> Error(line)
+        _, True -> Error(BotError(line))
         _, _ -> receive_until_match_inner(socket, allowlist, denylist, rest)
       }
     }

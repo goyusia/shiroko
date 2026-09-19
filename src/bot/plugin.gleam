@@ -1,63 +1,50 @@
+import bot/core
 import gleam/list
-import irc
 import irc/message
-import irc/tag
-import mug
+import logging
 import uptime/status
 
-pub type Sender {
-  Sender(respond: fn(irc.Message) -> Result(Nil, mug.Error))
-}
+pub type Reply =
+  fn(String) -> Result(Nil, core.Error)
 
-fn privmsg(channel: String, text: String) -> irc.Message {
-  message.Message(
-    command: "PRIVMSG",
-    params: [channel, text],
-    source: message.NoSource,
-    tags: tag.new_tags(),
-  )
-}
-
-pub fn dispatch(msg: message.Message, sender: Sender) {
+pub fn dispatch(msg: message.Message, reply: Reply) {
   case msg.params {
-    [_, "!ping"] -> handle_ping(msg, sender)
-    [_, "!version"] -> handle_version(msg, sender)
-    [_, "!" <> _rest] -> handle_unknown(msg, sender)
-    _ -> Ok(Nil)
-  }
-}
-
-fn handle_ping(msg: message.Message, sender: Sender) {
-  case msg.params {
-    [channel, ..] -> {
-      let reply = privmsg(channel, "pong")
-      sender.respond(reply)
+    [_, "!ping", ..rest] -> {
+      logging.log(logging.Debug, "ping")
+      handle_ping(rest, reply)
+    }
+    [_, "!panic", ..rest] -> {
+      logging.log(logging.Debug, "panic")
+      handle_panic(rest, reply)
+    }
+    [_, "!version", ..rest] -> {
+      logging.log(logging.Debug, "version")
+      handle_version(rest, reply)
+    }
+    [_, "!" <> command, ..rest] -> {
+      logging.log(logging.Debug, "unknown command: " <> command)
+      handle_unknown(command, rest, reply)
     }
     _ -> Ok(Nil)
   }
 }
 
-fn handle_version(msg: message.Message, sender: Sender) {
-  case msg.params {
-    [channel, ..] -> {
-      let revision = status.get_commit_id()
-      // TODO: markdown block 전송이 되나? multi-line text?
-      ["# shiroko version", "- commit id: " <> revision]
-      |> list.map(privmsg(channel, _))
-      |> list.each(sender.respond)
-      Ok(Nil)
-    }
-    _ -> Ok(Nil)
-  }
+fn handle_ping(_params: List(String), reply: Reply) {
+  reply("pong")
 }
 
-fn handle_unknown(msg: message.Message, sender: Sender) {
-  case msg.params {
-    [channel, first, ..] -> {
-      let text = "unknown command: " <> first
-      let reply = privmsg(channel, text)
-      sender.respond(reply)
-    }
-    _ -> Ok(Nil)
-  }
+fn handle_panic(_params: List(String), _reply: Reply) {
+  panic as "panic by irc command"
+}
+
+fn handle_version(_params: List(String), reply: Reply) {
+  let revision = status.get_commit_id()
+  // TODO: markdown block 전송이 되나? multi-line text?
+  ["# shiroko version", "- commit id: " <> revision]
+  |> list.each(reply)
+  Ok(Nil)
+}
+
+fn handle_unknown(command: String, _params: List(String), reply: Reply) {
+  reply("unknown command: " <> command)
 }

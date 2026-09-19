@@ -1,5 +1,4 @@
-import bot/init.{type Config}
-import bot/util
+import bot/core.{type IrcIdentity}
 import gleam/result
 import gleam/set
 import irc
@@ -7,15 +6,18 @@ import irc/message
 import irc/tag
 import mug
 
-pub fn login(socket: mug.Socket, config: Config) {
-  let send = util.send_single(socket, _)
-  assert nick_message(config.nickname) |> send == Ok(Nil)
-  assert user_message(config.nickname, config.realname) |> send == Ok(Nil)
+pub fn flow_login(socket: mug.Socket, identity: IrcIdentity) {
+  let nickname = identity.nickname
+  let realname = identity.realname
+
+  let send = core.send_single(socket, _)
+  use _ <- result.try(nick_message(nickname) |> send)
+  use _ <- result.try(user_message(nickname, realname) |> send)
   use _ <- result.try(wait_until_welcome(socket))
   Ok(Nil)
 }
 
-fn wait_until_welcome(socket: mug.Socket) {
+pub fn wait_until_welcome(socket: mug.Socket) {
   let allowlist =
     set.from_list([
       // RPL_WELCOME
@@ -28,7 +30,7 @@ fn wait_until_welcome(socket: mug.Socket) {
       "433",
     ])
 
-  util.receive_until_match(socket, allowlist:, denylist:)
+  core.receive_until_match(socket, allowlist:, denylist:)
 }
 
 fn nick_message(nickname: String) -> irc.Message {

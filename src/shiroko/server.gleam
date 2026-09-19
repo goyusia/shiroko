@@ -9,11 +9,6 @@ import wisp
 import wisp/wisp_mist
 
 pub fn start(wrap_reload, bot_config: bot.Config) {
-  // let assert Ok(socket) =
-  //   mug.new(host, port: port)
-  //   |> mug.timeout(milliseconds: 500)
-  //   |> mug.connect()
-
   let uptime_registry = new_uptime_registry()
   let context =
     web.Context(
@@ -21,10 +16,8 @@ pub fn start(wrap_reload, bot_config: bot.Config) {
       static_directory: static_directory(),
     )
 
-  // TODO: supervisor 체제로는 아직 전환 안함
-  bot.start(bot_config)
-
   supervisor.new(supervisor.OneForOne)
+  |> supervisor.add(bot.supervised(bot_config))
   |> supervisor.add(uptime.supervised(uptime_registry))
   |> supervisor.add(start_web(wrap_reload, context))
   |> supervisor.start()
