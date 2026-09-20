@@ -1,4 +1,5 @@
 import gleam/bit_array
+import gleam/erlang/process
 import gleam/result
 import gleam/set
 import irc
@@ -18,6 +19,30 @@ pub type Identity {
 
 pub type Config {
   Config(endpoint: Endpoint, identity: Identity, channels: List(String))
+}
+
+pub type SessionMessage {
+  Tcp(mug.TcpMessage)
+  IrcOutgoing(irc.Message)
+}
+
+pub type ClientMessage {
+  ClientMessage(message: irc.Message, line: String)
+}
+
+pub type Context {
+  Context(
+    session_name: process.Name(SessionMessage),
+    client_name: process.Name(ClientMessage),
+  )
+}
+
+pub fn client_subject(ctx: Context) {
+  process.named_subject(ctx.client_name)
+}
+
+pub fn session_subject(ctx: Context) {
+  process.named_subject(ctx.session_name)
 }
 
 pub type Error {

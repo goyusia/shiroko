@@ -1,7 +1,5 @@
 import bot/core.{type Endpoint, type Identity}
-import bot/irc_channel
 import bot/login
-import bot/plugin
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/list
@@ -16,13 +14,16 @@ import irc/verb
 import logging
 import mug
 
-type State {
-  State(subject: process.Subject(Message), socket: mug.Socket, buffer: BitArray)
-}
+type Message =
+  core.SessionMessage
 
-pub type Message {
-  Tcp(mug.TcpMessage)
-  IrcOutgoing(irc.Message)
+type State {
+  State(
+    ctx: core.Context,
+    subject: process.Subject(Message),
+    socket: mug.Socket,
+    buffer: BitArray,
+  )
 }
 
 fn handle_message(
@@ -30,21 +31,21 @@ fn handle_message(
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    Tcp(mug.Packet(socket, packet)) -> {
+    core.Tcp(mug.Packet(socket, packet)) -> {
       mug.receive_next_packet_as_message(socket)
       handle_packet(state, packet)
     }
-    Tcp(mug.SocketClosed(_socket)) -> {
+    core.Tcp(mug.SocketClosed(_socket)) -> {
       let reason = "socket closed"
       logging.log(logging.Warning, reason)
       actor.stop_abnormal(reason)
     }
-    Tcp(mug.TcpError(_socket, error)) -> {
+    core.Tcp(mug.TcpError(_socket, error)) -> {
       let reason = string.inspect(error)
       logging.log(logging.Critical, reason)
       actor.stop_abnormal(reason)
     }
-    IrcOutgoing(message) -> {
+    core.IrcOutgoing(message) -> {
       handle_irc_outgoing(state, message)
     }
   }
@@ -55,32 +56,27 @@ fn handle_packet(state: State, packet: BitArray) -> actor.Next(State, Message) {
   let #(lines, buffer) = reader.extract_lines(buffer)
   let state = State(..state, buffer:)
 
-  // TODO: 메세지 처리는 루프를 막으면 안된다
-  list.each(lines, handle_line(_, state.socket))
-
+  list.each(lines, handle_line(state, _))
   actor.continue(state)
 }
 
-fn handle_line(line: String, socket: mug.Socket) {
-  use msg <- result.try(message.parse(line))
-  let _ = case msg.command, msg.params {
-    command, [dest, ..] if command == verb.privmsg -> {
-      let reply = core.send_line(socket, dest, _)
-      plugin.dispatch(msg, reply)
-    }
-    command, _ if command == verb.ping -> {
+fn handle_line(state: State, line: String) {
+  use msg <- result.try(
+    message.parse(line)
+    |> result.map_error(fn(e) { core.BotError(string.inspect(e)) }),
+  )
+
+  case msg.command {
+    "PING" -> {
       message.Message(..msg, command: verb.pong)
-      |> core.send_single(socket, _)
+      |> core.send_single(state.socket, _)
     }
-    command, [_nickname, channel] if command == verb.invite -> {
-      irc_channel.join(socket, channel)
-    }
-    _, _ -> {
-      logging.log(logging.Info, "irc packet: " <> line)
+    _ -> {
+      let subject = core.client_subject(state.ctx)
+      process.send(subject, core.ClientMessage(msg, line))
       Ok(Nil)
     }
   }
-  Ok(Nil)
 }
 
 fn handle_irc_outgoing(
@@ -91,23 +87,23 @@ fn handle_irc_outgoing(
   actor.continue(state)
 }
 
-pub fn start(config: core.Config) {
+pub fn start(config: core.Config, ctx: core.Context) {
   actor.new_with_initialiser(1000, fn(subject) {
     case connect(config.endpoint, config.identity) {
       Ok(socket) -> {
         let selector =
           process.new_selector()
-          |> mug.select_tcp_messages(fn(msg) { Tcp(msg) })
+          |> mug.select_tcp_messages(fn(msg) { core.Tcp(msg) })
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 
-        // 초기 접속 채널
+        // TODO: 초기 접속 채널. session에서 책임을 뺴는걸 기대
         config.channels
         |> list.map(outgoing.join)
-        |> list.map(IrcOutgoing)
+        |> list.map(core.IrcOutgoing)
         |> list.map(process.send(subject, _))
 
-        let state = State(subject, socket, <<>>)
+        let state = State(ctx, subject, socket, <<>>)
         Ok(
           actor.initialised(state)
           |> actor.selecting(selector)
@@ -121,6 +117,7 @@ pub fn start(config: core.Config) {
       }
     }
   })
+  |> actor.named(ctx.session_name)
   |> actor.on_message(handle_message)
   |> actor.start()
 }
