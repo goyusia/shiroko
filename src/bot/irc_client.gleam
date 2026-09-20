@@ -1,4 +1,4 @@
-import bot/core.{type IrcEndpoint, type IrcIdentity}
+import bot/core.{type Endpoint, type Identity}
 import bot/irc_channel
 import bot/login
 import bot/plugin
@@ -126,8 +126,8 @@ pub fn start(config: core.Config) {
 }
 
 fn connect(
-  endpoint: IrcEndpoint,
-  identity: IrcIdentity,
+  endpoint: Endpoint,
+  identity: Identity,
 ) -> Result(mug.Socket, core.Error) {
   // TODO: 더 안정적힌 처리 방법?
   use socket <- result.try(

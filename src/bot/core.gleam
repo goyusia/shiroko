@@ -8,16 +8,16 @@ import irc/reader
 import logging
 import mug
 
-pub type IrcEndpoint {
+pub type Endpoint {
   IrcEndpoint(host: String, port: Int)
 }
 
-pub type IrcIdentity {
+pub type Identity {
   IrcIdentity(nickname: String, realname: String)
 }
 
 pub type Config {
-  Config(endpoint: IrcEndpoint, identity: IrcIdentity, channels: List(String))
+  Config(endpoint: Endpoint, identity: Identity, channels: List(String))
 }
 
 pub type Error {

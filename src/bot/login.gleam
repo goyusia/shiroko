@@ -1,11 +1,11 @@
-import bot/core.{type IrcIdentity}
+import bot/core.{type Identity}
 import gleam/result
 import gleam/set
 import irc/outgoing
 import irc/verb
 import mug
 
-pub fn flow_login(socket: mug.Socket, identity: IrcIdentity) {
+pub fn flow_login(socket: mug.Socket, identity: Identity) {
   let nickname = identity.nickname
   let realname = identity.realname
 
