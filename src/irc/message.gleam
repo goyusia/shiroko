@@ -14,13 +14,30 @@ pub type Message {
   Message(command: String, params: List(String), source: Source, tags: Tags)
 }
 
-pub fn new(
-  command command: String,
-  params params: List(String),
-  source source: Source,
-  tags tags: Tags,
+pub fn new(command: String, params: List(String)) -> Message {
+  Message(
+    command: command,
+    params: params,
+    source: NoSource,
+    tags: tag.new_tags(),
+  )
+}
+
+pub fn set_source(message: Message, source: Source) -> Message {
+  Message(..message, source: source)
+}
+
+pub fn set_tags(message: Message, tags: Tags) -> Message {
+  Message(..message, tags: tags)
+}
+
+pub fn insert_tag(
+  message: Message,
+  key: String,
+  value: tag.TagValue,
 ) -> Message {
-  Message(command: command, params: params, source: source, tags: tags)
+  let tags = dict.insert(message.tags, key, value)
+  Message(..message, tags: tags)
 }
 
 pub type ParseError {

@@ -3,8 +3,8 @@ import gleam/result
 import gleam/set
 import irc
 import irc/message
+import irc/outgoing
 import irc/reader
-import irc/tag
 import logging
 import mug
 
@@ -35,21 +35,12 @@ pub fn send_single(socket: mug.Socket, msg: irc.Message) -> Result(Nil, Error) {
   |> result.map_error(SocketError)
 }
 
-fn privmsg(dest: String, text: String) -> irc.Message {
-  message.Message(
-    command: "PRIVMSG",
-    params: [dest, text],
-    source: message.NoSource,
-    tags: tag.new_tags(),
-  )
-}
-
 pub fn send_line(
   socket: mug.Socket,
   dest: String,
   line: String,
 ) -> Result(Nil, Error) {
-  privmsg(dest, line)
+  outgoing.privmsg(dest, line)
   |> send_single(socket, _)
 }
 

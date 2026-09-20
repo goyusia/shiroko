@@ -1,4 +1,5 @@
 import bot/core.{type IrcEndpoint, type IrcIdentity}
+import bot/irc_channel
 import bot/login
 import bot/plugin
 import gleam/bit_array
@@ -9,8 +10,8 @@ import gleam/result
 import gleam/string
 import irc
 import irc/message
+import irc/outgoing
 import irc/reader
-import irc/tag
 import logging
 import mug
 
@@ -70,8 +71,11 @@ fn handle_line(line: String, socket: mug.Socket) {
       message.Message(..msg, command: "PONG")
       |> core.send_single(socket, _)
     }
+    "INVITE", [_nickname, channel] -> {
+      irc_channel.join(socket, channel)
+    }
     _, _ -> {
-      logging.log(logging.Info, line)
+      logging.log(logging.Info, "irc packet: " <> line)
       Ok(Nil)
     }
   }
@@ -98,7 +102,7 @@ pub fn start(config: core.Config) {
 
         // 초기 접속 채널
         config.channels
-        |> list.map(join_message)
+        |> list.map(outgoing.join)
         |> list.map(IrcOutgoing)
         |> list.map(process.send(subject, _))
 
@@ -134,13 +138,4 @@ fn connect(
 
   use _ <- result.try(login.flow_login(socket, identity))
   Ok(socket)
-}
-
-fn join_message(channel: String) -> irc.Message {
-  message.Message(
-    command: "JOIN",
-    params: [channel],
-    source: message.NoSource,
-    tags: tag.new_tags(),
-  )
 }
