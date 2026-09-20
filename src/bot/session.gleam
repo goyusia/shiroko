@@ -8,7 +8,6 @@ import gleam/result
 import gleam/string
 import irc
 import irc/message
-import irc/outgoing
 import irc/reader
 import irc/verb
 import logging
@@ -96,12 +95,6 @@ pub fn start(config: core.Config, ctx: core.Context) {
           |> mug.select_tcp_messages(fn(msg) { core.Tcp(msg) })
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
-
-        // TODO: 초기 접속 채널. session에서 책임을 뺴는걸 기대
-        config.channels
-        |> list.map(outgoing.join)
-        |> list.map(core.IrcOutgoing)
-        |> list.map(process.send(subject, _))
 
         let state = State(ctx, subject, socket, <<>>)
         Ok(
