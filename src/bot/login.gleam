@@ -2,6 +2,7 @@ import bot/core.{type IrcIdentity}
 import gleam/result
 import gleam/set
 import irc/outgoing
+import irc/verb
 import mug
 
 pub fn flow_login(socket: mug.Socket, identity: IrcIdentity) {
@@ -16,17 +17,7 @@ pub fn flow_login(socket: mug.Socket, identity: IrcIdentity) {
 }
 
 pub fn wait_until_welcome(socket: mug.Socket) {
-  let allowlist =
-    set.from_list([
-      // RPL_WELCOME
-      "001",
-    ])
-
-  let denylist =
-    set.from_list([
-      // ERR_NICKNAMEINUSE
-      "433",
-    ])
-
+  let allowlist = set.from_list([verb.rpl_welcome])
+  let denylist = set.from_list([verb.err_nicknameinuse])
   core.receive_until_match(socket, allowlist:, denylist:)
 }

@@ -12,6 +12,7 @@ import irc
 import irc/message
 import irc/outgoing
 import irc/reader
+import irc/verb
 import logging
 import mug
 
@@ -63,15 +64,15 @@ fn handle_packet(state: State, packet: BitArray) -> actor.Next(State, Message) {
 fn handle_line(line: String, socket: mug.Socket) {
   use msg <- result.try(message.parse(line))
   let _ = case msg.command, msg.params {
-    "PRIVMSG", [dest, ..] -> {
+    command, [dest, ..] if command == verb.privmsg -> {
       let reply = core.send_line(socket, dest, _)
       plugin.dispatch(msg, reply)
     }
-    "PING", _ -> {
-      message.Message(..msg, command: "PONG")
+    command, _ if command == verb.ping -> {
+      message.Message(..msg, command: verb.pong)
       |> core.send_single(socket, _)
     }
-    "INVITE", [_nickname, channel] -> {
+    command, [_nickname, channel] if command == verb.invite -> {
       irc_channel.join(socket, channel)
     }
     _, _ -> {

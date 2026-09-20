@@ -11,3 +11,7 @@ pub const invite = "INVITE"
 pub const ping = "PING"
 
 pub const pong = "PONG"
+
+pub const rpl_welcome = "001"
+
+pub const err_nicknameinuse = "433"
