@@ -18,7 +18,7 @@ type Message =
 
 type State {
   State(
-    ctx: core.Context,
+    link: core.Link,
     subject: process.Subject(Message),
     socket: mug.Socket,
     buffer: BitArray,
@@ -71,7 +71,7 @@ fn handle_line(state: State, line: String) {
       |> core.send_single(state.socket, _)
     }
     _ -> {
-      let subject = core.client_subject(state.ctx)
+      let subject = core.client_subject(state.link)
       process.send(subject, core.ClientMessage(msg, line))
       Ok(Nil)
     }
@@ -86,7 +86,7 @@ fn handle_irc_outgoing(
   actor.continue(state)
 }
 
-pub fn start(config: core.Config, ctx: core.Context) {
+pub fn start(config: core.Config, link: core.Link) {
   actor.new_with_initialiser(1000, fn(subject) {
     case connect(config.endpoint, config.identity) {
       Ok(socket) -> {
@@ -96,7 +96,7 @@ pub fn start(config: core.Config, ctx: core.Context) {
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 
-        let state = State(ctx, subject, socket, <<>>)
+        let state = State(link, subject, socket, <<>>)
         Ok(
           actor.initialised(state)
           |> actor.selecting(selector)
@@ -110,7 +110,7 @@ pub fn start(config: core.Config, ctx: core.Context) {
       }
     }
   })
-  |> actor.named(ctx.session_name)
+  |> actor.named(link.session)
   |> actor.on_message(handle_message)
   |> actor.start()
 }

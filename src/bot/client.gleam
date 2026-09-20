@@ -8,7 +8,7 @@ import irc/verb
 import logging
 
 type State {
-  State(ctx: core.Context)
+  State(link: core.Link)
 }
 
 type Message =
@@ -36,7 +36,7 @@ fn handle_privmsg(state: State, msg: irc.Message) {
         let _ =
           outgoing.privmsg(dest, line)
           |> core.IrcOutgoing()
-          |> process.send(core.session_subject(state.ctx), _)
+          |> process.send(core.session_subject(state.link), _)
         Ok(Nil)
       }
       let _ = plugin.dispatch(msg, reply)
@@ -56,10 +56,10 @@ fn handle_invite(state: State, msg: irc.Message) {
   }
 }
 
-pub fn start_supervisor(ctx: core.Context) {
-  let initial = State(ctx)
+pub fn start_supervisor(link: core.Link) {
+  let initial = State(link)
   actor.new(initial)
-  |> actor.named(ctx.client_name)
+  |> actor.named(link.client)
   |> actor.on_message(handle_message)
   |> actor.start
 }
@@ -67,5 +67,5 @@ pub fn start_supervisor(ctx: core.Context) {
 fn join(state: State, channel: String) {
   outgoing.join(channel)
   |> core.IrcOutgoing()
-  |> process.send(core.session_subject(state.ctx), _)
+  |> process.send(core.session_subject(state.link), _)
 }

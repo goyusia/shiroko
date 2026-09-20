@@ -30,19 +30,19 @@ pub type ClientMessage {
   ClientMessage(message: irc.Message, line: String)
 }
 
-pub type Context {
-  Context(
-    session_name: process.Name(SessionMessage),
-    client_name: process.Name(ClientMessage),
+pub type Link {
+  Link(
+    session: process.Name(SessionMessage),
+    client: process.Name(ClientMessage),
   )
 }
 
-pub fn client_subject(ctx: Context) {
-  process.named_subject(ctx.client_name)
+pub fn client_subject(link: Link) {
+  process.named_subject(link.client)
 }
 
-pub fn session_subject(ctx: Context) {
-  process.named_subject(ctx.session_name)
+pub fn session_subject(link: Link) {
+  process.named_subject(link.session)
 }
 
 pub type Error {

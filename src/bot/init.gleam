@@ -10,12 +10,14 @@ import irc/outgoing
 pub fn start_supervisor(config: Config) {
   let session_name = process.new_name("session")
   let client_name = process.new_name("client")
-  let ctx = core.Context(session_name, client_name)
+  let link = core.Link(session_name, client_name)
 
   let sup =
     supervisor.new(supervisor.OneForOne)
-    |> supervisor.add(supervision.worker(fn() { client.start_supervisor(ctx) }))
-    |> supervisor.add(supervision.worker(fn() { session.start(config, ctx) }))
+    |> supervisor.add(
+      supervision.worker(fn() { client.start_supervisor(link) }),
+    )
+    |> supervisor.add(supervision.worker(fn() { session.start(config, link) }))
     |> supervisor.start()
 
   // 초기 접속 채널
