@@ -1,5 +1,6 @@
 import bot/client
 import bot/protocol.{type Config}
+import bot/router
 import bot/session
 import gleam/erlang/process
 import gleam/list
@@ -10,14 +11,23 @@ import irc/outgoing
 pub fn start_supervisor(config: Config) {
   let session_name = process.new_name("session")
   let client_name = process.new_name("client")
-  let link = protocol.Link(session_name, client_name)
+  let router_name = process.new_name("router")
+  let link =
+    protocol.Link(
+      session: session_name,
+      client: client_name,
+      router: router_name,
+    )
 
   let sup =
     supervisor.new(supervisor.OneForOne)
+    |> supervisor.add(supervision.worker(fn() { client.start_client(link) }))
     |> supervisor.add(
-      supervision.worker(fn() { client.start_supervisor(link) }),
+      supervision.worker(fn() { session.start_session(config, link) }),
     )
-    |> supervisor.add(supervision.worker(fn() { session.start(config, link) }))
+    |> supervisor.add(
+      supervision.supervisor(fn() { router.start_supervisor(link) }),
+    )
     |> supervisor.start()
 
   // 초기 접속 채널

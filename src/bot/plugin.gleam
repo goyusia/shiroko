@@ -1,48 +1,45 @@
-import bot/protocol
 import gleam/list
-import irc/message
 import logging
 import uptime/status
 
 pub type Reply =
-  fn(String) -> Result(Nil, protocol.Error)
+  fn(String) -> Nil
 
-pub fn dispatch(msg: message.Message, reply: Reply) {
-  case msg.params {
-    [_, "!ping", ..rest] -> {
+pub fn dispatch(tokens: List(String), reply: Reply) {
+  case tokens {
+    ["!ping"] -> {
       logging.log(logging.Debug, "ping")
-      handle_ping(rest, reply)
+      handle_ping(reply)
     }
-    [_, "!panic", ..rest] -> {
+    ["!panic"] -> {
       logging.log(logging.Debug, "panic")
-      handle_panic(rest, reply)
+      handle_panic(reply)
     }
-    [_, "!version", ..rest] -> {
+    ["!version"] -> {
       logging.log(logging.Debug, "version")
-      handle_version(rest, reply)
+      handle_version(reply)
     }
-    [_, "!" <> command, ..rest] -> {
+    ["!" <> command, ..rest] -> {
       logging.log(logging.Debug, "unknown command: " <> command)
       handle_unknown(command, rest, reply)
     }
-    _ -> Ok(Nil)
+    _ -> Nil
   }
 }
 
-fn handle_ping(_params: List(String), reply: Reply) {
+fn handle_ping(reply: Reply) {
   reply("pong")
 }
 
-fn handle_panic(_params: List(String), _reply: Reply) {
+fn handle_panic(_reply: Reply) {
   panic as "panic by irc command"
 }
 
-fn handle_version(_params: List(String), reply: Reply) {
+fn handle_version(reply: Reply) {
   let revision = status.get_commit_id()
   // TODO: markdown block 전송이 되나? multi-line text?
   ["# shiroko version", "- commit id: " <> revision]
   |> list.each(reply)
-  Ok(Nil)
 }
 
 fn handle_unknown(command: String, _params: List(String), reply: Reply) {

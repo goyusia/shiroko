@@ -82,7 +82,7 @@ fn handle_irc_outgoing(
   actor.continue(state)
 }
 
-pub fn start(config: protocol.Config, link: protocol.Link) {
+pub fn start_session(config: protocol.Config, link: protocol.Link) {
   actor.new_with_initialiser(1000, fn(subject) {
     case connect(config.endpoint, config.identity) {
       Ok(socket) -> {
