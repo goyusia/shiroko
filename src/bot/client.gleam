@@ -1,5 +1,5 @@
-import bot/core
 import bot/plugin
+import bot/protocol
 import gleam/erlang/process
 import gleam/otp/actor
 import irc
@@ -8,11 +8,11 @@ import irc/verb
 import logging
 
 type State {
-  State(link: core.Link)
+  State(link: protocol.Link)
 }
 
 type Message =
-  core.ClientMessage
+  protocol.ClientMessage
 
 fn handle_message(
   state: State,
@@ -35,8 +35,8 @@ fn handle_privmsg(state: State, msg: irc.Message) {
       let reply: plugin.Reply = fn(line) {
         let _ =
           outgoing.privmsg(dest, line)
-          |> core.IrcOutgoing()
-          |> process.send(core.session_subject(state.link), _)
+          |> protocol.IrcOutgoing()
+          |> process.send(protocol.session_subject(state.link), _)
         Ok(Nil)
       }
       let _ = plugin.dispatch(msg, reply)
@@ -56,7 +56,7 @@ fn handle_invite(state: State, msg: irc.Message) {
   }
 }
 
-pub fn start_supervisor(link: core.Link) {
+pub fn start_supervisor(link: protocol.Link) {
   let initial = State(link)
   actor.new(initial)
   |> actor.named(link.client)
@@ -66,6 +66,6 @@ pub fn start_supervisor(link: core.Link) {
 
 fn join(state: State, channel: String) {
   outgoing.join(channel)
-  |> core.IrcOutgoing()
-  |> process.send(core.session_subject(state.link), _)
+  |> protocol.IrcOutgoing()
+  |> process.send(protocol.session_subject(state.link), _)
 }

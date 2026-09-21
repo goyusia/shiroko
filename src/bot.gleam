@@ -1,9 +1,9 @@
-import bot/core
 import bot/init
+import bot/protocol
 import gleam/otp/supervision
 
 pub type Config =
-  core.Config
+  protocol.Config
 
 pub fn supervised(config: Config) {
   supervision.supervisor(fn() { init.start_supervisor(config) })

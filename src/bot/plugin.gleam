@@ -1,11 +1,11 @@
-import bot/core
+import bot/protocol
 import gleam/list
 import irc/message
 import logging
 import uptime/status
 
 pub type Reply =
-  fn(String) -> Result(Nil, core.Error)
+  fn(String) -> Result(Nil, protocol.Error)
 
 pub fn dispatch(msg: message.Message, reply: Reply) {
   case msg.params {

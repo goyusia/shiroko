@@ -1,28 +1,24 @@
-import bot/core.{type Endpoint, type Identity}
-import bot/login
+import bot/protocol.{type Endpoint, type Identity}
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/list
 import gleam/otp/actor
 import gleam/result
+import gleam/set
 import gleam/string
 import irc
 import irc/message
+import irc/outgoing
 import irc/reader
 import irc/verb
 import logging
 import mug
 
 type Message =
-  core.SessionMessage
+  protocol.SessionMessage
 
 type State {
-  State(
-    link: core.Link,
-    subject: process.Subject(Message),
-    socket: mug.Socket,
-    buffer: BitArray,
-  )
+  State(link: protocol.Link, socket: mug.Socket, buffer: BitArray)
 }
 
 fn handle_message(
@@ -30,21 +26,21 @@ fn handle_message(
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    core.Tcp(mug.Packet(socket, packet)) -> {
+    protocol.Tcp(mug.Packet(socket, packet)) -> {
       mug.receive_next_packet_as_message(socket)
       handle_packet(state, packet)
     }
-    core.Tcp(mug.SocketClosed(_socket)) -> {
+    protocol.Tcp(mug.SocketClosed(_socket)) -> {
       let reason = "socket closed"
       logging.log(logging.Warning, reason)
       actor.stop_abnormal(reason)
     }
-    core.Tcp(mug.TcpError(_socket, error)) -> {
+    protocol.Tcp(mug.TcpError(_socket, error)) -> {
       let reason = string.inspect(error)
       logging.log(logging.Critical, reason)
       actor.stop_abnormal(reason)
     }
-    core.IrcOutgoing(message) -> {
+    protocol.IrcOutgoing(message) -> {
       handle_irc_outgoing(state, message)
     }
   }
@@ -62,17 +58,17 @@ fn handle_packet(state: State, packet: BitArray) -> actor.Next(State, Message) {
 fn handle_line(state: State, line: String) {
   use msg <- result.try(
     message.parse(line)
-    |> result.map_error(fn(e) { core.BotError(string.inspect(e)) }),
+    |> result.map_error(fn(e) { protocol.BotError(string.inspect(e)) }),
   )
 
   case msg.command {
     "PING" -> {
       message.Message(..msg, command: verb.pong)
-      |> core.send_single(state.socket, _)
+      |> send_single(state.socket, _)
     }
     _ -> {
-      let subject = core.client_subject(state.link)
-      process.send(subject, core.ClientMessage(msg, line))
+      let subject = protocol.client_subject(state.link)
+      process.send(subject, protocol.ClientMessage(msg, line))
       Ok(Nil)
     }
   }
@@ -82,21 +78,21 @@ fn handle_irc_outgoing(
   state: State,
   message: irc.Message,
 ) -> actor.Next(State, Message) {
-  let _ = core.send_single(state.socket, message)
+  let _ = send_single(state.socket, message)
   actor.continue(state)
 }
 
-pub fn start(config: core.Config, link: core.Link) {
+pub fn start(config: protocol.Config, link: protocol.Link) {
   actor.new_with_initialiser(1000, fn(subject) {
     case connect(config.endpoint, config.identity) {
       Ok(socket) -> {
         let selector =
           process.new_selector()
-          |> mug.select_tcp_messages(fn(msg) { core.Tcp(msg) })
+          |> mug.select_tcp_messages(fn(msg) { protocol.Tcp(msg) })
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 
-        let state = State(link, subject, socket, <<>>)
+        let state = State(link, socket, <<>>)
         Ok(
           actor.initialised(state)
           |> actor.selecting(selector)
@@ -118,15 +114,83 @@ pub fn start(config: core.Config, link: core.Link) {
 fn connect(
   endpoint: Endpoint,
   identity: Identity,
-) -> Result(mug.Socket, core.Error) {
+) -> Result(mug.Socket, protocol.Error) {
   // TODO: 더 안정적힌 처리 방법?
   use socket <- result.try(
     mug.new(endpoint.host, endpoint.port)
     |> mug.timeout(milliseconds: 500)
     |> mug.connect()
-    |> result.map_error(core.ConnectionError),
+    |> result.map_error(protocol.ConnectionError),
   )
 
-  use _ <- result.try(login.flow_login(socket, identity))
+  use _ <- result.try(flow_login(socket, identity))
   Ok(socket)
+}
+
+pub fn send_single(
+  socket: mug.Socket,
+  msg: irc.Message,
+) -> Result(Nil, protocol.Error) {
+  msg
+  |> message.to_string()
+  |> bit_array.from_string()
+  |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
+  |> mug.send(socket, _)
+  |> result.map_error(protocol.SocketError)
+}
+
+fn receive_until_match(
+  socket: mug.Socket,
+  allowlist allowlist: set.Set(String),
+  denylist denylist: set.Set(String),
+) {
+  receive_until_match_inner(socket, allowlist, denylist, <<>>)
+}
+
+fn receive_until_match_inner(
+  socket: mug.Socket,
+  allowlist: set.Set(String),
+  denylist: set.Set(String),
+  buffer: BitArray,
+) -> Result(Nil, protocol.Error) {
+  use packet <- result.try(
+    mug.receive(socket, timeout_milliseconds: 1000)
+    |> result.map_error(protocol.SocketError),
+  )
+
+  let buffer = bit_array.append(buffer, packet)
+  let #(lines, rest) = reader.extract_lines(buffer)
+
+  case lines {
+    [] -> receive_until_match_inner(socket, allowlist, denylist, rest)
+    [line, ..] -> {
+      logging.log(logging.Debug, line)
+
+      let assert Ok(message) = message.parse(line)
+      let allow = set.contains(allowlist, message.command)
+      let deny = set.contains(denylist, message.command)
+      case allow, deny {
+        True, _ -> Ok(Nil)
+        _, True -> Error(protocol.BotError(line))
+        _, _ -> receive_until_match_inner(socket, allowlist, denylist, rest)
+      }
+    }
+  }
+}
+
+fn flow_login(socket: mug.Socket, identity: Identity) {
+  let nickname = identity.nickname
+  let realname = identity.realname
+
+  let send = send_single(socket, _)
+  use _ <- result.try(outgoing.nick(nickname) |> send)
+  use _ <- result.try(outgoing.user(nickname, realname) |> send)
+  use _ <- result.try(wait_until_welcome(socket))
+  Ok(Nil)
+}
+
+fn wait_until_welcome(socket: mug.Socket) {
+  let allowlist = set.from_list([verb.rpl_welcome])
+  let denylist = set.from_list([verb.err_nicknameinuse])
+  receive_until_match(socket, allowlist:, denylist:)
 }

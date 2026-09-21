@@ -1,4 +1,4 @@
-import bot/core
+import bot/protocol
 import dot_env as dot
 import gleam/erlang/process
 import logging
@@ -19,9 +19,9 @@ pub fn main() {
 }
 
 fn bot_config() {
-  core.Config(
-    endpoint: core.IrcEndpoint(host: "ichika", port: 6667),
-    identity: core.IrcIdentity(nickname: "shiroko", realname: "shiroko"),
+  protocol.Config(
+    endpoint: protocol.IrcEndpoint(host: "ichika", port: 6667),
+    identity: protocol.IrcIdentity(nickname: "shiroko", realname: "shiroko"),
     channels: ["#bot"],
   )
 }

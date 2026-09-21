@@ -1,5 +1,5 @@
 import bot/client
-import bot/core.{type Config}
+import bot/protocol.{type Config}
 import bot/session
 import gleam/erlang/process
 import gleam/list
@@ -10,7 +10,7 @@ import irc/outgoing
 pub fn start_supervisor(config: Config) {
   let session_name = process.new_name("session")
   let client_name = process.new_name("client")
-  let link = core.Link(session_name, client_name)
+  let link = protocol.Link(session_name, client_name)
 
   let sup =
     supervisor.new(supervisor.OneForOne)
@@ -24,7 +24,7 @@ pub fn start_supervisor(config: Config) {
   let session_subject = process.named_subject(session_name)
   config.channels
   |> list.map(outgoing.join)
-  |> list.map(core.IrcOutgoing)
+  |> list.map(protocol.IrcOutgoing)
   |> list.map(process.send(session_subject, _))
 
   sup

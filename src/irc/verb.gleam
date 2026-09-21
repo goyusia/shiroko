@@ -88,4 +88,8 @@ pub const wallops = "WALLOPS"
 // numerics
 pub const rpl_welcome = "001"
 
+pub const rpl_endofmotd = "376"
+
+pub const err_nomotd = "422"
+
 pub const err_nicknameinuse = "433"
