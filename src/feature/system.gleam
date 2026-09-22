@@ -1,9 +1,7 @@
 import feature/contract.{type Reply}
 import gleam/erlang/process
-import gleam/list
 import gleam/time/duration
 import gleam/time/timestamp
-import uptime/status
 
 type State =
   Nil
@@ -20,10 +18,6 @@ pub fn dispatch(
     }
     ["!panic"] -> {
       handle_panic(reply)
-      Ok(state)
-    }
-    ["!version"] -> {
-      handle_version(reply)
       Ok(state)
     }
     ["!delay"] -> {
@@ -55,11 +49,4 @@ fn handle_delay(reply: Reply) {
     reply("delay: end " <> kst_now())
   })
   Nil
-}
-
-fn handle_version(reply: Reply) {
-  let revision = status.get_commit_id()
-  // TODO: markdown block 전송이 되나? multi-line text?
-  ["# shiroko version", "- commit id: " <> revision]
-  |> list.each(reply)
 }

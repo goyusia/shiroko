@@ -7,6 +7,7 @@ import gleam/list
 import gleam/otp/static_supervisor as supervisor
 import gleam/otp/supervision
 import irc/outgoing
+import uptime/status
 
 pub fn start_supervisor(config: Config) {
   let link =
@@ -31,6 +32,14 @@ pub fn start_supervisor(config: Config) {
   let session_subject = process.named_subject(link.session)
   config.channels
   |> list.map(outgoing.join)
+  |> list.map(protocol.IrcOutgoing)
+  |> list.map(process.send(session_subject, _))
+
+  // 기본 채널로 서버 버전 정보 알려주기. 자동 배포떄문에 있으면 편할거같은데
+  let version = status.get_commit_id()
+  let line = "bot: " <> version
+  config.channels
+  |> list.map(outgoing.privmsg(_, line))
   |> list.map(protocol.IrcOutgoing)
   |> list.map(process.send(session_subject, _))
 
