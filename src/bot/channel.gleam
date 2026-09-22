@@ -1,13 +1,15 @@
-import bot/plugin
 import bot/protocol.{type ChannelStart}
+import feature/contract.{type Reply}
+import feature/counter
+import feature/system
 import gleam/erlang/process
-import gleam/json
 import gleam/otp/actor
+import gleam/result
 import gleam/string
 import irc/outgoing
 
 type Memory {
-  Memory(last_text: String, counter: Int)
+  Memory(counter: counter.State)
 }
 
 type State {
@@ -38,41 +40,38 @@ fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
   let reply = send_line(state, _)
   let tokens = string.split(line, " ")
 
-  let memory = state.memory
-  let memory = case tokens {
-    ["!memory"] -> {
-      memory
-      |> memory_to_json
-      |> json.to_string
-      |> reply
-      memory
-    }
-    ["!counter.inc"] -> {
-      Memory(..memory, counter: memory.counter + 1)
-    }
-    ["!counter.reset"] -> {
-      Memory(..memory, counter: 0)
-    }
-    _ -> {
-      plugin.dispatch(tokens, reply)
-      memory
-    }
+  let next = dispatch(state.memory, tokens, reply)
+  case next {
+    Ok(memory) -> actor.continue(State(..state, memory:))
+    Error(_) -> actor.continue(state)
   }
-
-  let memory = Memory(..memory, last_text: line)
-  let state = State(..state, memory: memory)
-  actor.continue(state)
 }
 
-fn memory_to_json(memory: Memory) -> json.Json {
-  json.object([
-    #("counter", json.int(memory.counter)),
-    #("last_text", json.string(memory.last_text)),
-  ])
+fn dispatch(mem: Memory, tokens: List(String), reply: Reply) {
+  use _ <- result.try_recover(dispatch_system(mem, tokens, reply))
+  use _ <- result.try_recover(dispatch_counter(mem, tokens, reply))
+
+  case tokens {
+    ["!" <> command, ..] -> {
+      reply("unknown command: " <> command)
+      Ok(mem)
+    }
+    _ -> Error(Nil)
+  }
+}
+
+fn dispatch_system(mem: Memory, tokens: List(String), reply: Reply) {
+  use _ <- result.try(system.dispatch(0, tokens, reply))
+  Ok(mem)
+}
+
+fn dispatch_counter(mem: Memory, tokens: List(String), reply: Reply) {
+  use next <- result.try(counter.dispatch(mem.counter, tokens, reply))
+  Ok(Memory(counter: next))
 }
 
 pub fn start_worker(arg: ChannelStart) {
-  let memory = Memory(last_text: "", counter: 0)
+  let memory = Memory(counter: counter.State(counter: 0))
   let initial = State(arg.channel, memory, arg.link)
   actor.new(initial)
   |> actor.named(arg.name)
