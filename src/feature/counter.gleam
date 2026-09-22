@@ -1,4 +1,4 @@
-import feature/contract.{type Reply}
+import feature/contract.{type Responder}
 import gleam/int
 import gleam/json
 
@@ -9,23 +9,23 @@ pub type State {
 pub fn dispatch(
   state: State,
   tokens: List(String),
-  reply: Reply,
+  respond: Responder,
 ) -> Result(State, Nil) {
   case tokens {
     ["!counter.show"] -> {
       state
       |> state_to_json
       |> json.to_string
-      |> reply
+      |> respond
       Ok(state)
     }
     ["!counter.inc"] -> {
       let next = state.counter + 1
-      reply("counter: " <> int.to_string(next))
+      respond("counter: " <> int.to_string(next))
       Ok(State(counter: next))
     }
     ["!counter.reset"] -> {
-      reply("counter: 0")
+      respond("counter: 0")
       Ok(State(counter: 0))
     }
     _ -> Error(Nil)

@@ -1,5 +1,5 @@
 import bot/protocol.{type ChannelStart}
-import feature/contract.{type Reply}
+import feature/contract.{type Responder}
 import feature/counter
 import feature/ops
 import feature/system
@@ -38,42 +38,42 @@ fn send_line(state: State, line: String) {
 }
 
 fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
-  let reply = send_line(state, _)
+  let respond = send_line(state, _)
   let tokens = string.split(line, " ")
 
-  let next = dispatch(state.memory, tokens, reply)
+  let next = dispatch(state.memory, tokens, respond)
   case next {
     Ok(memory) -> actor.continue(State(..state, memory:))
     Error(_) -> actor.continue(state)
   }
 }
 
-fn dispatch(mem: Memory, tokens: List(String), reply: Reply) {
-  use _ <- result.try_recover(dispatch_system(mem, tokens, reply))
-  use _ <- result.try_recover(dispatch_counter(mem, tokens, reply))
-  use _ <- result.try_recover(dispatch_ops(mem, tokens, reply))
+fn dispatch(mem: Memory, tokens: List(String), respond: Responder) {
+  use _ <- result.try_recover(dispatch_system(mem, tokens, respond))
+  use _ <- result.try_recover(dispatch_counter(mem, tokens, respond))
+  use _ <- result.try_recover(dispatch_ops(mem, tokens, respond))
 
   case tokens {
     ["!" <> command, ..] -> {
-      reply("unknown command: " <> command)
+      respond("unknown command: " <> command)
       Ok(mem)
     }
     _ -> Error(Nil)
   }
 }
 
-fn dispatch_system(mem: Memory, tokens: List(String), reply: Reply) {
-  use _ <- result.try(system.dispatch(Nil, tokens, reply))
+fn dispatch_system(mem: Memory, tokens: List(String), respond: Responder) {
+  use _ <- result.try(system.dispatch(Nil, tokens, respond))
   Ok(mem)
 }
 
-fn dispatch_counter(mem: Memory, tokens: List(String), reply: Reply) {
-  use next <- result.try(counter.dispatch(mem.counter, tokens, reply))
+fn dispatch_counter(mem: Memory, tokens: List(String), respond: Responder) {
+  use next <- result.try(counter.dispatch(mem.counter, tokens, respond))
   Ok(Memory(counter: next))
 }
 
-fn dispatch_ops(mem: Memory, tokens: List(String), reply: Reply) {
-  use _ <- result.try(ops.dispatch(Nil, tokens, reply))
+fn dispatch_ops(mem: Memory, tokens: List(String), respond: Responder) {
+  use _ <- result.try(ops.dispatch(Nil, tokens, respond))
   Ok(mem)
 }
 

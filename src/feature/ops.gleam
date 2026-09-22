@@ -1,4 +1,4 @@
-import feature/contract.{type Reply}
+import feature/contract.{type Responder}
 import gleam/list
 import gleam/result
 import shellout
@@ -10,30 +10,30 @@ type State =
 pub fn dispatch(
   state: State,
   tokens: List(String),
-  reply: Reply,
+  respond: Responder,
 ) -> Result(State, Nil) {
   case tokens {
     ["!ops.redeploy"] -> {
-      handle_redeploy(reply)
+      handle_redeploy(respond)
       Ok(state)
     }
     ["!ops.version"] -> {
-      handle_version(reply)
+      handle_version(respond)
       Ok(state)
     }
     _ -> Ok(state)
   }
 }
 
-fn handle_version(reply: Reply) {
+fn handle_version(respond: Responder) {
   let revision = status.get_commit_id()
   // TODO: markdown block 전송이 되나? multi-line text?
   ["# shiroko version", "- commit id: " <> revision]
-  |> list.each(reply)
+  |> list.each(respond)
 }
 
-fn handle_redeploy(reply: Reply) {
-  reply("redeploy start")
+fn handle_redeploy(respond: Responder) {
+  respond("redeploy start")
   let _ = redeploy()
   Nil
 }

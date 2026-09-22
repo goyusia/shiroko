@@ -1,2 +1,2 @@
-pub type Reply =
+pub type Responder =
   fn(String) -> Nil

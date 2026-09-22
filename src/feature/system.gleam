@@ -1,4 +1,4 @@
-import feature/contract.{type Reply}
+import feature/contract.{type Responder}
 import gleam/erlang/process
 import gleam/time/duration
 import gleam/time/timestamp
@@ -9,30 +9,30 @@ type State =
 pub fn dispatch(
   state: State,
   tokens: List(String),
-  reply: Reply,
+  respond: Responder,
 ) -> Result(State, Nil) {
   case tokens {
     ["!ping"] -> {
-      handle_ping(reply)
+      handle_ping(respond)
       Ok(state)
     }
     ["!panic"] -> {
-      handle_panic(reply)
+      handle_panic(respond)
       Ok(state)
     }
     ["!delay"] -> {
-      handle_delay(reply)
+      handle_delay(respond)
       Ok(state)
     }
     _ -> Error(Nil)
   }
 }
 
-fn handle_ping(reply: Reply) {
-  reply("pong")
+fn handle_ping(respond: Responder) {
+  respond("pong")
 }
 
-fn handle_panic(_reply) {
+fn handle_panic(_respond) {
   panic as "panic by irc command"
 }
 
@@ -41,12 +41,12 @@ fn kst_now() {
   |> timestamp.to_rfc3339(duration.hours(9))
 }
 
-fn handle_delay(reply: Reply) {
-  reply("delay: start " <> kst_now())
+fn handle_delay(respond: Responder) {
+  respond("delay: start " <> kst_now())
 
   process.spawn_unlinked(fn() {
     process.sleep(5000)
-    reply("delay: end " <> kst_now())
+    respond("delay: end " <> kst_now())
   })
   Nil
 }
