@@ -37,8 +37,8 @@ fn handle_privmsg(state: State, msg: irc.Message) {
   case msg.params {
     [channel, text] -> {
       process.send(
-        process.named_subject(state.link.router),
-        protocol.RouterMessage(channel, text),
+        process.named_subject(state.link.dispatcher),
+        protocol.DispatcherText(channel, text),
       )
       actor.continue(state)
     }

@@ -23,12 +23,12 @@ pub type ClientMessage {
   ClientMessage(message: irc.Message, line: String)
 }
 
-pub type RouterMessage {
-  RouterMessage(dest: String, text: String)
+pub type DispatcherMessage {
+  DispatcherText(dest: String, text: String)
 }
 
 pub type ChannelMessage {
-  ChannelMessage(text: String)
+  ChannelText(text: String)
 }
 
 pub type ChannelStart {
@@ -39,7 +39,7 @@ pub type Link {
   Link(
     session: process.Name(SessionMessage),
     client: process.Name(ClientMessage),
-    router: process.Name(RouterMessage),
+    dispatcher: process.Name(DispatcherMessage),
   )
 }
 

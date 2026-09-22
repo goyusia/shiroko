@@ -21,7 +21,7 @@ fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  let protocol.ChannelMessage(text:) = message
+  let protocol.ChannelText(text:) = message
   case string.starts_with(text, "!") {
     True -> handle_command(state, text)
     False -> actor.continue(state)
