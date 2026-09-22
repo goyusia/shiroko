@@ -1,8 +1,13 @@
 import feature/contract.{type Responder}
+import gleam/int
 import gleam/list
 import gleam/result
+import gleam/string
 import shellout
 import uptime/status
+
+@external(erlang, "uptime_ffi", "uptime")
+fn erlang_uptime() -> #(Int, #(Int, Int, Int))
 
 type State =
   Nil
@@ -21,8 +26,23 @@ pub fn dispatch(
       handle_version(respond)
       Ok(state)
     }
+    ["!ops.uptime"] -> {
+      handle_uptime(respond)
+      Ok(state)
+    }
     _ -> Error(Nil)
   }
+}
+
+fn handle_uptime(respond: Responder) {
+  let #(days, #(hours, minutes, seconds)) = erlang_uptime()
+  let h = hours |> int.to_string
+  let m = minutes |> int.to_string |> string.pad_start(2, "0")
+  let s = seconds |> int.to_string |> string.pad_start(2, "0")
+  let d = days |> int.to_string
+  respond(
+    "shiroko uptime: " <> h <> ":" <> m <> ":" <> s <> " up " <> d <> " days",
+  )
 }
 
 fn handle_version(respond: Responder) {
