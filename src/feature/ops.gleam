@@ -21,7 +21,7 @@ pub fn dispatch(
       handle_version(respond)
       Ok(state)
     }
-    _ -> Ok(state)
+    _ -> Error(Nil)
   }
 }
 
