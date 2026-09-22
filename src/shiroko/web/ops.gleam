@@ -1,5 +1,5 @@
+import feature/ops
 import gleam/json
-import shiroko/ops
 import wisp.{type Request, type Response}
 
 pub fn redeploy(_req: Request) -> Response {

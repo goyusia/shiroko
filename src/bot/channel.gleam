@@ -1,6 +1,7 @@
 import bot/protocol.{type ChannelStart}
 import feature/contract.{type Reply}
 import feature/counter
+import feature/ops
 import feature/system
 import gleam/erlang/process
 import gleam/otp/actor
@@ -50,6 +51,7 @@ fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
 fn dispatch(mem: Memory, tokens: List(String), reply: Reply) {
   use _ <- result.try_recover(dispatch_system(mem, tokens, reply))
   use _ <- result.try_recover(dispatch_counter(mem, tokens, reply))
+  use _ <- result.try_recover(dispatch_ops(mem, tokens, reply))
 
   case tokens {
     ["!" <> command, ..] -> {
@@ -61,13 +63,18 @@ fn dispatch(mem: Memory, tokens: List(String), reply: Reply) {
 }
 
 fn dispatch_system(mem: Memory, tokens: List(String), reply: Reply) {
-  use _ <- result.try(system.dispatch(0, tokens, reply))
+  use _ <- result.try(system.dispatch(Nil, tokens, reply))
   Ok(mem)
 }
 
 fn dispatch_counter(mem: Memory, tokens: List(String), reply: Reply) {
   use next <- result.try(counter.dispatch(mem.counter, tokens, reply))
   Ok(Memory(counter: next))
+}
+
+fn dispatch_ops(mem: Memory, tokens: List(String), reply: Reply) {
+  use _ <- result.try(ops.dispatch(Nil, tokens, reply))
+  Ok(mem)
 }
 
 pub fn start_worker(arg: ChannelStart) {
