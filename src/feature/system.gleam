@@ -1,39 +1,55 @@
-import feature/contract.{type Responder}
+import clip
+import clip/arg
+import clip/help
+import feature/contract.{type Reporter}
 import gleam/erlang/process
 import gleam/time/duration
 import gleam/time/timestamp
 
-type State =
-  Nil
-
-pub fn dispatch(
-  state: State,
-  tokens: List(String),
-  respond: Responder,
-) -> Result(State, Nil) {
-  case tokens {
-    ["!ping"] -> {
-      handle_ping(respond)
-      Ok(state)
-    }
-    ["!panic"] -> {
-      handle_panic(respond)
-      Ok(state)
-    }
-    ["!delay"] -> {
-      handle_delay(respond)
-      Ok(state)
-    }
-    _ -> Error(Nil)
+pub fn execute_ping(argv: List(String), reporter: Reporter) {
+  case contract.execute_stateless(argv, contract.none_command(), reporter) {
+    Ok(_) -> handle_ping(Nil, reporter)
+    Error(_) -> Nil
   }
 }
 
-fn handle_ping(respond: Responder) {
-  respond("pong")
+fn handle_ping(_input, reporter: Reporter) {
+  reporter.send("pong")
 }
 
-fn handle_panic(_respond) {
+pub fn execute_panic(argv: List(String), reporter: Reporter) {
+  case contract.execute_stateless(argv, contract.none_command(), reporter) {
+    Ok(_) -> handle_panic(Nil, reporter)
+    Error(_) -> Nil
+  }
+}
+
+fn handle_panic(_input, _reporter) {
   panic as "panic by irc command"
+}
+
+type DelayInput {
+  DelayInput(delay_ms: Int)
+}
+
+fn delay_command() {
+  let millis_arg =
+    arg.new("millis")
+    |> arg.int()
+
+  clip.command({
+    use millis <- clip.parameter
+    DelayInput(millis)
+  })
+  |> clip.arg(millis_arg)
+  |> clip.help(help.simple("!delay", "delay"))
+}
+
+pub fn execute_delay(argv: List(String), reporter: Reporter) {
+  case contract.execute_stateless(argv, delay_command(), reporter) {
+    Ok(input) -> handle_delay(input, reporter)
+    Error(_) -> Nil
+  }
 }
 
 fn kst_now() {
@@ -41,12 +57,12 @@ fn kst_now() {
   |> timestamp.to_rfc3339(duration.hours(9))
 }
 
-fn handle_delay(respond: Responder) {
-  respond("delay: start " <> kst_now())
+fn handle_delay(input: DelayInput, reporter: Reporter) {
+  reporter.send("delay: start " <> kst_now())
 
   process.spawn_unlinked(fn() {
-    process.sleep(5000)
-    respond("delay: end " <> kst_now())
+    process.sleep(input.delay_ms)
+    reporter.send("delay: end " <> kst_now())
   })
   Nil
 }

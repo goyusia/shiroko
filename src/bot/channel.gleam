@@ -1,16 +1,15 @@
 import bot/protocol.{type ChannelStart}
-import feature/contract.{type Responder}
+import feature/contract.{type Reporter}
 import feature/counter
 import feature/ops
 import feature/system
 import gleam/erlang/process
 import gleam/otp/actor
-import gleam/result
 import gleam/string
 import irc/outgoing
 
 type Memory {
-  Memory(counter: counter.State)
+  Memory(counter: counter.State, blank: Int)
 }
 
 type State {
@@ -39,46 +38,71 @@ fn send_line(state: State, line: String) {
 
 fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
   let respond = send_line(state, _)
-  let tokens = string.split(line, " ")
+  let reporter = contract.Reporter(respond)
 
-  let next = dispatch(state.memory, tokens, respond)
+  let tokens = string.split(line, " ")
+  let next = dispatch(state.memory, tokens, reporter)
   case next {
     Ok(memory) -> actor.continue(State(..state, memory:))
     Error(_) -> actor.continue(state)
   }
 }
 
-fn dispatch(mem: Memory, tokens: List(String), respond: Responder) {
-  use _ <- result.try_recover(dispatch_system(mem, tokens, respond))
-  use _ <- result.try_recover(dispatch_counter(mem, tokens, respond))
-  use _ <- result.try_recover(dispatch_ops(mem, tokens, respond))
-
+fn dispatch(mem: Memory, tokens: List(String), reporter: Reporter) {
   case tokens {
+    ["!ping", ..argv] -> {
+      system.execute_ping(argv, reporter)
+      Ok(mem)
+    }
+    ["!panic", ..argv] -> {
+      system.execute_panic(argv, reporter)
+      Ok(mem)
+    }
+    ["!delay", ..argv] -> {
+      system.execute_delay(argv, reporter)
+      Ok(mem)
+    }
+    ["!uptime", ..argv] -> {
+      ops.execute_uptime(argv, reporter)
+      Ok(mem)
+    }
+    ["!version", ..argv] -> {
+      ops.execute_version(argv, reporter)
+      Ok(mem)
+    }
+    ["!ops.redeploy", ..argv] -> {
+      ops.execute_redeploy(argv, reporter)
+      Ok(mem)
+    }
+    ["!counter.show", ..argv] -> {
+      counter.execute_show(mem.counter, argv, reporter)
+      |> apply_memory_counter(mem, _)
+      |> Ok()
+    }
+    ["!counter.add", ..argv] -> {
+      counter.execute_add(mem.counter, argv, reporter)
+      |> apply_memory_counter(mem, _)
+      |> Ok()
+    }
+    ["!counter.reset", ..argv] -> {
+      counter.execute_reset(mem.counter, argv, reporter)
+      |> apply_memory_counter(mem, _)
+      |> Ok()
+    }
     ["!" <> command, ..] -> {
-      respond("unknown command: " <> command)
+      reporter.send("unknown command: " <> command)
       Ok(mem)
     }
     _ -> Error(Nil)
   }
 }
 
-fn dispatch_system(mem: Memory, tokens: List(String), respond: Responder) {
-  use _ <- result.try(system.dispatch(Nil, tokens, respond))
-  Ok(mem)
-}
-
-fn dispatch_counter(mem: Memory, tokens: List(String), respond: Responder) {
-  use next <- result.try(counter.dispatch(mem.counter, tokens, respond))
-  Ok(Memory(counter: next))
-}
-
-fn dispatch_ops(mem: Memory, tokens: List(String), respond: Responder) {
-  use _ <- result.try(ops.dispatch(Nil, tokens, respond))
-  Ok(mem)
+fn apply_memory_counter(mem: Memory, counter: counter.State) -> Memory {
+  Memory(counter: counter, blank: mem.blank)
 }
 
 pub fn start_worker(arg: ChannelStart) {
-  let memory = Memory(counter: counter.State(counter: 0))
+  let memory = Memory(counter: counter.State(counter: 0), blank: 0)
   let initial = State(arg.channel, memory, arg.link)
   actor.new(initial)
   |> actor.named(arg.name)

@@ -1,4 +1,4 @@
-import feature/contract.{type Responder}
+import feature/contract.{type Reporter}
 import gleam/int
 import gleam/list
 import gleam/result
@@ -9,51 +9,47 @@ import uptime/status
 @external(erlang, "uptime_ffi", "uptime")
 fn erlang_uptime() -> #(Int, #(Int, Int, Int))
 
-type State =
-  Nil
-
-pub fn dispatch(
-  state: State,
-  tokens: List(String),
-  respond: Responder,
-) -> Result(State, Nil) {
-  case tokens {
-    ["!ops.redeploy"] -> {
-      handle_redeploy(respond)
-      Ok(state)
-    }
-    ["!ops.version"] -> {
-      handle_version(respond)
-      Ok(state)
-    }
-    ["!ops.uptime"] -> {
-      handle_uptime(respond)
-      Ok(state)
-    }
-    _ -> Error(Nil)
+pub fn execute_uptime(argv: List(String), reporter: Reporter) {
+  case contract.execute_stateless(argv, contract.none_command(), reporter) {
+    Ok(_) -> handle_uptime(reporter)
+    Error(_) -> Nil
   }
 }
 
-fn handle_uptime(respond: Responder) {
+fn handle_uptime(reporter: Reporter) {
   let #(days, #(hours, minutes, seconds)) = erlang_uptime()
   let h = hours |> int.to_string
   let m = minutes |> int.to_string |> string.pad_start(2, "0")
   let s = seconds |> int.to_string |> string.pad_start(2, "0")
   let d = days |> int.to_string
-  respond(
+  reporter.send(
     "shiroko uptime: " <> h <> ":" <> m <> ":" <> s <> " up " <> d <> " days",
   )
 }
 
-fn handle_version(respond: Responder) {
+pub fn execute_version(argv: List(String), reporter: Reporter) {
+  case contract.execute_stateless(argv, contract.none_command(), reporter) {
+    Ok(_) -> handle_version(reporter)
+    Error(_) -> Nil
+  }
+}
+
+fn handle_version(reporter: Reporter) {
   let revision = status.get_commit_id()
   // TODO: markdown block 전송이 되나? multi-line text?
   ["# shiroko version", "- commit id: " <> revision]
-  |> list.each(respond)
+  |> list.each(reporter.send)
 }
 
-fn handle_redeploy(respond: Responder) {
-  respond("redeploy start")
+pub fn execute_redeploy(argv: List(String), reporter: Reporter) {
+  case contract.execute_stateless(argv, contract.none_command(), reporter) {
+    Ok(_) -> handle_redeploy(reporter)
+    Error(_) -> Nil
+  }
+}
+
+fn handle_redeploy(reporter: Reporter) {
+  reporter.send("redeploy start")
   let _ = redeploy()
   Nil
 }
