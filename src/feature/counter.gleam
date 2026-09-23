@@ -27,13 +27,18 @@ fn add_command() {
 }
 
 pub fn execute_add(state: State, argv: List(String), reporter: Reporter) {
+  echo argv
   case add_command() |> clip.run(argv) {
     Ok(input) -> {
+      echo input
       let next = state.counter + input.step
       reporter.send("counter: " <> int.to_string(next))
       State(counter: next)
     }
-    Error(_) -> state
+    Error(e) -> {
+      contract.send_error(e, reporter)
+      state
+    }
   }
 }
 
@@ -43,9 +48,12 @@ pub fn execute_reset(_state, _argv: List(String), reporter: Reporter) {
 }
 
 pub fn execute_show(state: State, argv: List(String), reporter: Reporter) {
-  case contract.execute_stateless(argv, contract.none_command(), reporter) {
+  case contract.none_command() |> clip.run(argv) {
     Ok(_) -> handle_show(state, reporter)
-    Error(_) -> state
+    Error(e) -> {
+      contract.send_error(e, reporter)
+      state
+    }
   }
 }
 

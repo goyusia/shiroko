@@ -1,4 +1,4 @@
-import clip.{type Command}
+import clip
 import gleam/list
 import gleam/string
 
@@ -9,23 +9,11 @@ pub type Reporter {
   Reporter(send: Responder)
 }
 
-pub fn execute_stateless(
-  argv: List(String),
-  command: Command(a),
-  reporter: Reporter,
-) {
-  case command |> clip.run(argv) {
-    Ok(input) -> {
-      Ok(input)
-    }
-    Error(help) -> {
-      help
-      |> string.split("\n")
-      |> list.filter(fn(line) { string.trim(line) != "" })
-      |> list.each(reporter.send)
-      Error(Nil)
-    }
-  }
+pub fn send_error(text: String, reporter: Reporter) {
+  text
+  |> string.split("\n")
+  |> list.filter(fn(line) { string.trim(line) != "" })
+  |> list.each(reporter.send)
 }
 
 pub fn check_trigger(
