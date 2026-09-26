@@ -60,10 +60,6 @@ fn dispatch(mem: Memory, tokens: List(String), reporter: Reporter) {
       system.execute_panic(argv, reporter)
       Ok(mem)
     }
-    ["!delay", ..argv] -> {
-      system.execute_delay(argv, reporter)
-      Ok(mem)
-    }
     ["!uptime", ..argv] -> {
       ops.execute_uptime(argv, reporter)
       Ok(mem)
