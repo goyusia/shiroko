@@ -60,7 +60,8 @@ fn new_batch_id() -> String {
   let #(s, n) =
     timestamp.system_time()
     |> timestamp.to_unix_seconds_and_nanoseconds()
-  int.to_string(s) <> int.to_string(n)
+  let naive = s + n
+  "m-" <> int.to_string(naive % 100)
 }
 
 pub fn string_into_chunks(str: String, size: Int) -> List(String) {
