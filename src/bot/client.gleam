@@ -1,11 +1,9 @@
 import bot/protocol
-import gleam/bit_array
 import gleam/dict
 import gleam/erlang/process
 import gleam/int
 import gleam/list
 import gleam/otp/actor
-import gleam/result
 import gleam/set
 import gleam/string
 import gleam/time/timestamp
@@ -69,41 +67,25 @@ fn new_batch_id() -> String {
 // https://ircv3.net/specs/extensions/multiline
 // 353 bytes
 pub fn string_into_batch(str: String, max_byte_size: Int) -> List(String) {
-  string_into_batch_loop(str, <<>>, max_byte_size, [])
+  string_into_batch_loop(str, "", max_byte_size, [])
 }
 
 fn string_into_batch_loop(
   str: String,
-  buffer: BitArray,
+  buffer: String,
   max_byte_size: Int,
   batch: List(String),
 ) -> List(String) {
   case string.first(str) {
     Ok(head) -> {
-      let head_bit_array = bit_array.from_string(head)
       let rest = string.remove_prefix(str, head)
-      case bit_array.byte_size(buffer) + bit_array.byte_size(head_bit_array) {
-        size if size > max_byte_size -> {
-          let line =
-            buffer
-            |> bit_array.to_string()
-            |> result.unwrap("")
-          let batch = [line, ..batch]
-          string_into_batch_loop(rest, head_bit_array, max_byte_size, batch)
-        }
-        _ -> {
-          let buffer = bit_array.append(buffer, head_bit_array)
-          string_into_batch_loop(rest, buffer, max_byte_size, batch)
-        }
+      case string.byte_size(buffer) + string.byte_size(head) {
+        next_byte_size if next_byte_size > max_byte_size ->
+          string_into_batch_loop(rest, head, max_byte_size, [buffer, ..batch])
+        _ -> string_into_batch_loop(rest, buffer <> head, max_byte_size, batch)
       }
     }
-    Error(_) -> {
-      let line =
-        buffer
-        |> bit_array.to_string()
-        |> result.unwrap("")
-      list.reverse([line, ..batch])
-    }
+    Error(_) -> list.reverse([buffer, ..batch])
   }
 }
 
