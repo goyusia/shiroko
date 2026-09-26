@@ -1,9 +1,11 @@
 import bot/protocol
+import gleam/bit_array
 import gleam/dict
 import gleam/erlang/process
 import gleam/int
 import gleam/list
 import gleam/otp/actor
+import gleam/result
 import gleam/set
 import gleam/string
 import gleam/time/timestamp
@@ -64,33 +66,45 @@ fn new_batch_id() -> String {
   "m-" <> int.to_string(naive % 100)
 }
 
-pub fn string_into_chunks(str: String, size: Int) -> List(String) {
-  string_into_chunks_loop(str, size, [])
+// https://ircv3.net/specs/extensions/multiline
+// 353 bytes
+pub fn string_into_batch(str: String, max_byte_size: Int) -> List(String) {
+  string_into_batch_loop(str, <<>>, max_byte_size, [])
 }
 
-pub fn string_into_chunks_loop(
+fn string_into_batch_loop(
   str: String,
-  size: Int,
-  acc: List(String),
+  buffer: BitArray,
+  max_byte_size: Int,
+  batch: List(String),
 ) -> List(String) {
-  case string.length(str) {
-    0 -> list.reverse(acc)
-    len if len > size -> {
-      let first = string.slice(str, 0, size)
-      let rest = string.slice(str, size, len - size)
-      string_into_chunks_loop(rest, size, [first, ..acc])
+  case string.first(str) {
+    Ok(head) -> {
+      let head_bit_array = bit_array.from_string(head)
+      let rest = string.remove_prefix(str, head)
+      case bit_array.byte_size(buffer) + bit_array.byte_size(head_bit_array) {
+        size if size > max_byte_size -> {
+          let line =
+            buffer
+            |> bit_array.to_string()
+            |> result.unwrap("")
+          let batch = [line, ..batch]
+          string_into_batch_loop(rest, head_bit_array, max_byte_size, batch)
+        }
+        _ -> {
+          let buffer = bit_array.append(buffer, head_bit_array)
+          string_into_batch_loop(rest, buffer, max_byte_size, batch)
+        }
+      }
     }
-    _ -> string_into_chunks_loop("", size, [str, ..acc])
+    Error(_) -> {
+      let line =
+        buffer
+        |> bit_array.to_string()
+        |> result.unwrap("")
+      list.reverse([line, ..batch])
+    }
   }
-}
-
-fn string_into_batch(str: String) -> List(String) {
-  // https://ircv3.net/specs/extensions/multiline
-  // 353 bytes -> 117 characters (utf-8 3byte 기준)
-  // 반쯤 잘리는 경우는 피해야한다! 353byte 안에 넣는 식으로 자르려면 다른 방법이 필요할듯
-  // 짧게해도 문제 없으니까 일단 짧게 처리
-  let message_size = 80
-  string_into_chunks(str, message_size)
 }
 
 fn new_privmsg_list(
@@ -99,7 +113,7 @@ fn new_privmsg_list(
   batch_id: String,
 ) -> List(message.Message) {
   content
-  |> string_into_batch
+  |> string_into_batch(353)
   |> list.index_map(fn(line, index) {
     let tags =
       tag.new_tags()
