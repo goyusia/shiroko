@@ -55,8 +55,13 @@ fn ping_lazy(input: PingInput, reporter: Reporter) {
   Nil
 }
 
+fn panic_command() {
+  clip.return(Nil)
+  |> clip.help(help.simple("!panic", "panic"))
+}
+
 pub fn execute_panic(argv: List(String), reporter: Reporter) {
-  case contract.none_command() |> clip.run(argv) {
+  case panic_command() |> clip.run(argv) {
     Ok(_) -> handle_panic(Nil, reporter)
     Error(e) -> reporter.send(e)
   }

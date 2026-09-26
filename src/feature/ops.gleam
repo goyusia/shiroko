@@ -1,7 +1,6 @@
 import clip
 import feature/contract.{type Reporter}
 import gleam/int
-import gleam/list
 import gleam/result
 import gleam/string
 import shellout
@@ -37,9 +36,9 @@ pub fn execute_version(argv: List(String), reporter: Reporter) {
 
 fn handle_version(reporter: Reporter) {
   let revision = status.get_commit_id()
-  // TODO: markdown block 전송이 되나? multi-line text?
   ["# shiroko version", "- commit id: " <> revision]
-  |> list.each(reporter.send)
+  |> string.join("\n")
+  |> reporter.send
 }
 
 pub fn execute_redeploy(argv: List(String), reporter: Reporter) {

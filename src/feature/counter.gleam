@@ -27,10 +27,8 @@ fn add_command() {
 }
 
 pub fn execute_add(state: State, argv: List(String), reporter: Reporter) {
-  echo argv
   case add_command() |> clip.run(argv) {
     Ok(input) -> {
-      echo input
       let next = state.counter + input.step
       reporter.send("counter: " <> int.to_string(next))
       State(counter: next)

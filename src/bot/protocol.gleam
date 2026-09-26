@@ -17,6 +17,7 @@ pub type Config {
 pub type SessionMessage {
   SessionTcp(mug.TcpMessage)
   SessionIrcOutgoing(irc.Message)
+  SessionIrcOutgoingBatch(List(irc.Message))
 }
 
 pub type ClientMessage {

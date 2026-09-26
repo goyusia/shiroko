@@ -45,7 +45,10 @@ fn handle_message(
       actor.stop_abnormal(reason)
     }
     protocol.SessionIrcOutgoing(message) -> {
-      handle_irc_outgoing(state, message)
+      handle_irc_outgoing_single(state, message)
+    }
+    protocol.SessionIrcOutgoingBatch(messages) -> {
+      handle_irc_outgoing_bulk(state, messages)
     }
   }
 }
@@ -78,11 +81,19 @@ fn handle_line(state: State, line: String) {
   }
 }
 
-fn handle_irc_outgoing(
+fn handle_irc_outgoing_single(
   state: State,
   message: irc.Message,
 ) -> actor.Next(State, Message) {
   let _ = send_single(state.socket, message)
+  actor.continue(state)
+}
+
+fn handle_irc_outgoing_bulk(
+  state: State,
+  messages: List(irc.Message),
+) -> actor.Next(State, Message) {
+  let _ = send_bulk(state.socket, messages)
   actor.continue(state)
 }
 
@@ -145,6 +156,36 @@ pub fn send_single(
   |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
   |> mug.send(socket, _)
   |> result.map_error(protocol.SocketError)
+}
+
+pub fn send_bulk(
+  socket: mug.Socket,
+  messages: List(irc.Message),
+) -> Result(Nil, protocol.Error) {
+  messages
+  |> list.map(message.to_string)
+  |> list.map(bit_array.from_string)
+  |> list.fold(<<>>, fn(acc, x) { bit_array.concat([acc, x, <<"\r\n":utf8>>]) })
+  |> send_buffer_loop(socket, _)
+  |> result.map_error(protocol.SocketError)
+}
+
+fn send_buffer_loop(
+  socket: mug.Socket,
+  buffer: BitArray,
+) -> Result(Nil, mug.Error) {
+  case bit_array.byte_size(buffer) {
+    0 -> Ok(Nil)
+    len if len > 512 -> {
+      let assert Ok(first) = bit_array.slice(buffer, 0, 512)
+      let assert Ok(rest) = bit_array.slice(buffer, 512, len - 512)
+      let next_loop = fn(_) { send_buffer_loop(socket, rest) }
+      mug.send(socket, first) |> result.try(next_loop)
+    }
+    _ -> {
+      mug.send(socket, buffer)
+    }
+  }
 }
 
 fn receive_until_match(

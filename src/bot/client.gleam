@@ -52,16 +52,22 @@ fn handle_incoming(
 }
 
 fn handle_outgoing_text(state: State, channel: String, text: String) {
-  let session_subject = process.named_subject(state.session_name)
+  // 공백 메세지를 보내면 ERR_NOTEXTTOSEND 412 로 취급된다
+  // 그래서 공백 문자로 대신 취급
+  let messages =
+    text
+    |> string.split("\n")
+    |> list.map(fn(line) {
+      let line = case line {
+        "" -> " "
+        _ -> line
+      }
+      outgoing.privmsg(channel, line)
+    })
 
-  // TODO: 무식한 메세지 전송. 나중에 개선되어야한다!
-  // batching, multi-line, ...
-  text
-  |> string.split("\n")
-  |> list.filter(fn(x) { x != "" })
-  |> list.map(outgoing.privmsg(channel, _))
-  |> list.map(protocol.SessionIrcOutgoing)
-  |> list.each(process.send(session_subject, _))
+  let session_subject = process.named_subject(state.session_name)
+  protocol.SessionIrcOutgoingBatch(messages)
+  |> process.send(session_subject, _)
 
   actor.continue(state)
 }
