@@ -6,14 +6,17 @@ import feature/system
 import gleam/erlang/process
 import gleam/otp/actor
 import gleam/string
-import irc/outgoing
 
 type Memory {
   Memory(counter: counter.State, blank: Int)
 }
 
 type State {
-  State(channel_name: String, memory: Memory, link: protocol.Link)
+  State(
+    name: String,
+    memory: Memory,
+    client_name: process.Name(protocol.ClientMessage),
+  )
 }
 
 type Message =
@@ -30,14 +33,13 @@ fn handle_message(
   }
 }
 
-fn send_line(state: State, line: String) {
-  outgoing.privmsg(state.channel_name, line)
-  |> protocol.IrcOutgoing()
-  |> process.send(protocol.session_subject(state.link), _)
+fn send_text(state: State, text: String) {
+  process.named_subject(state.client_name)
+  |> process.send(protocol.ClientOutgoingText(state.name, text))
 }
 
 fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
-  let respond = send_line(state, _)
+  let respond = send_text(state, _)
   let reporter = contract.Reporter(respond)
 
   let tokens = string.split(line, " ")
@@ -101,11 +103,14 @@ fn apply_memory_counter(mem: Memory, counter: counter.State) -> Memory {
   Memory(counter: counter, blank: mem.blank)
 }
 
-pub fn start_worker(arg: ChannelStart) {
+pub fn start_worker(
+  arg: ChannelStart,
+  client_name: process.Name(protocol.ClientMessage),
+) {
   let memory = Memory(counter: counter.State(counter: 0), blank: 0)
-  let initial = State(arg.channel, memory, arg.link)
+  let initial = State(arg.channel, memory, client_name)
   actor.new(initial)
-  |> actor.named(arg.name)
+  |> actor.named(arg.channel_name)
   |> actor.on_message(handle_message)
   |> actor.start
 }

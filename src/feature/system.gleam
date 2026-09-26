@@ -9,7 +9,7 @@ import gleam/time/timestamp
 pub fn execute_ping(argv: List(String), reporter: Reporter) {
   case contract.none_command() |> clip.run(argv) {
     Ok(_) -> handle_ping(Nil, reporter)
-    Error(e) -> contract.send_error(e, reporter)
+    Error(e) -> reporter.send(e)
   }
 }
 
@@ -20,7 +20,7 @@ fn handle_ping(_input, reporter: Reporter) {
 pub fn execute_panic(argv: List(String), reporter: Reporter) {
   case contract.none_command() |> clip.run(argv) {
     Ok(_) -> handle_panic(Nil, reporter)
-    Error(e) -> contract.send_error(e, reporter)
+    Error(e) -> reporter.send(e)
   }
 }
 
@@ -48,7 +48,7 @@ fn delay_command() {
 pub fn execute_delay(argv: List(String), reporter: Reporter) {
   case delay_command() |> clip.run(argv) {
     Ok(input) -> handle_delay(input, reporter)
-    Error(e) -> contract.send_error(e, reporter)
+    Error(e) -> reporter.send(e)
   }
 }
 

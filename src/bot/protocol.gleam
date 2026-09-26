@@ -15,16 +15,17 @@ pub type Config {
 }
 
 pub type SessionMessage {
-  Tcp(mug.TcpMessage)
-  IrcOutgoing(irc.Message)
+  SessionTcp(mug.TcpMessage)
+  SessionIrcOutgoing(irc.Message)
 }
 
 pub type ClientMessage {
-  ClientMessage(message: irc.Message, line: String)
+  ClientIncoming(message: irc.Message, line: String)
+  ClientOutgoingText(channel: String, text: String)
 }
 
 pub type DispatcherMessage {
-  DispatcherText(dest: String, text: String)
+  DispatcherText(channel: String, text: String)
 }
 
 pub type ChannelMessage {
@@ -32,23 +33,11 @@ pub type ChannelMessage {
 }
 
 pub type ChannelStart {
-  ChannelStart(channel: String, name: process.Name(ChannelMessage), link: Link)
-}
-
-pub type Link {
-  Link(
-    session: process.Name(SessionMessage),
-    client: process.Name(ClientMessage),
-    dispatcher: process.Name(DispatcherMessage),
+  ChannelStart(
+    channel: String,
+    channel_name: process.Name(ChannelMessage),
+    client_name: process.Name(ClientMessage),
   )
-}
-
-pub fn client_subject(link: Link) {
-  process.named_subject(link.client)
-}
-
-pub fn session_subject(link: Link) {
-  process.named_subject(link.session)
 }
 
 pub type Error {

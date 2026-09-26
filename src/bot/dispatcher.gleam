@@ -18,7 +18,7 @@ type State {
         process.Subject(protocol.ChannelMessage),
       ),
     ),
-    link: protocol.Link,
+    client_name: process.Name(protocol.ClientMessage),
   )
 }
 
@@ -29,14 +29,14 @@ fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  case string.starts_with(message.dest, "#") {
+  case string.starts_with(message.channel, "#") {
     True -> handle_channel(state, message)
     False -> handle_irrelevant(state, message)
   }
 }
 
 fn handle_channel(state: State, message: Message) {
-  let #(state, channel_name) = get_or_create_channel(state, message.dest)
+  let #(state, channel_name) = get_or_create_channel(state, message.channel)
   let channel_subject = process.named_subject(channel_name)
   process.send(channel_subject, protocol.ChannelText(text: message.text))
   actor.continue(state)
@@ -54,41 +54,50 @@ fn get_or_create_channel(
   case dict.get(state.mapping, dest) {
     Ok(channel_name) -> #(state, channel_name)
     Error(_) -> {
-      let name = process.new_name("channel:" <> dest)
+      let channel_name = process.new_name("channel:" <> dest)
       let _ =
         factory_supervisor.start_child(
           factory_sup,
-          protocol.ChannelStart(dest, name, state.link),
+          protocol.ChannelStart(dest, channel_name, state.client_name),
         )
       logging.log(logging.Info, "channel.spawn: " <> dest)
 
       let mapping =
         state.mapping
-        |> dict.insert(dest, name)
-      #(State(..state, mapping:), name)
+        |> dict.insert(dest, channel_name)
+      #(State(..state, mapping:), channel_name)
     }
   }
 }
 
-fn start_dispatcher(link: protocol.Link, factory_name) {
-  let initial = State(dict.new(), factory_name, link)
+fn start_dispatcher(dispatcher_name, client_name, factory_name) {
+  let initial = State(dict.new(), factory_name, client_name)
   actor.new(initial)
-  |> actor.named(link.dispatcher)
+  |> actor.named(dispatcher_name)
   |> actor.on_message(handle_message)
   |> actor.start()
 }
 
-pub fn start_supervisor(link: protocol.Link) {
+pub fn supervised(dispatcher_name, client_name) {
+  supervision.supervisor(fn() { start_supervisor(dispatcher_name, client_name) })
+}
+
+fn start_supervisor(dispatcher_name, client_name) {
   let factory_name = process.new_name("channel_factory")
   let channel_factory_supervisor =
-    factory_supervisor.worker_child(channel.start_worker)
+    factory_supervisor.worker_child(fn(arg) {
+      channel.start_worker(arg, client_name)
+    })
     |> factory_supervisor.named(factory_name)
     |> factory_supervisor.supervised()
 
+  let dispatcher_worker =
+    supervision.worker(fn() {
+      start_dispatcher(dispatcher_name, client_name, factory_name)
+    })
+
   supervisor.new(supervisor.OneForOne)
   |> supervisor.add(channel_factory_supervisor)
-  |> supervisor.add(
-    supervision.worker(fn() { start_dispatcher(link, factory_name) }),
-  )
+  |> supervisor.add(dispatcher_worker)
   |> supervisor.start()
 }

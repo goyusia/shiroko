@@ -18,7 +18,11 @@ type Message =
   protocol.SessionMessage
 
 type State {
-  State(link: protocol.Link, socket: mug.Socket, buffer: BitArray)
+  State(
+    socket: mug.Socket,
+    buffer: BitArray,
+    client_name: process.Name(protocol.ClientMessage),
+  )
 }
 
 fn handle_message(
@@ -26,21 +30,21 @@ fn handle_message(
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    protocol.Tcp(mug.Packet(socket, packet)) -> {
+    protocol.SessionTcp(mug.Packet(socket, packet)) -> {
       mug.receive_next_packet_as_message(socket)
       handle_packet(state, packet)
     }
-    protocol.Tcp(mug.SocketClosed(_socket)) -> {
+    protocol.SessionTcp(mug.SocketClosed(_socket)) -> {
       let reason = "socket closed"
       logging.log(logging.Warning, reason)
       actor.stop_abnormal(reason)
     }
-    protocol.Tcp(mug.TcpError(_socket, error)) -> {
+    protocol.SessionTcp(mug.TcpError(_socket, error)) -> {
       let reason = string.inspect(error)
       logging.log(logging.Critical, reason)
       actor.stop_abnormal(reason)
     }
-    protocol.IrcOutgoing(message) -> {
+    protocol.SessionIrcOutgoing(message) -> {
       handle_irc_outgoing(state, message)
     }
   }
@@ -67,8 +71,8 @@ fn handle_line(state: State, line: String) {
       |> send_single(state.socket, _)
     }
     _ -> {
-      let subject = protocol.client_subject(state.link)
-      process.send(subject, protocol.ClientMessage(msg, line))
+      let subject = process.named_subject(state.client_name)
+      process.send(subject, protocol.ClientIncoming(msg, line))
       Ok(Nil)
     }
   }
@@ -82,17 +86,21 @@ fn handle_irc_outgoing(
   actor.continue(state)
 }
 
-pub fn start_session(config: protocol.Config, link: protocol.Link) {
+pub fn start_session(
+  config: protocol.Config,
+  session_name: process.Name(protocol.SessionMessage),
+  client_name: process.Name(protocol.ClientMessage),
+) {
   actor.new_with_initialiser(1000, fn(subject) {
     case connect(config.endpoint, config.identity) {
       Ok(socket) -> {
         let selector =
           process.new_selector()
-          |> mug.select_tcp_messages(fn(msg) { protocol.Tcp(msg) })
+          |> mug.select_tcp_messages(fn(msg) { protocol.SessionTcp(msg) })
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 
-        let state = State(link, socket, <<>>)
+        let state = State(socket, <<>>, client_name)
         Ok(
           actor.initialised(state)
           |> actor.selecting(selector)
@@ -106,7 +114,7 @@ pub fn start_session(config: protocol.Config, link: protocol.Link) {
       }
     }
   })
-  |> actor.named(link.session)
+  |> actor.named(session_name)
   |> actor.on_message(handle_message)
   |> actor.start()
 }

@@ -36,7 +36,7 @@ pub fn execute_add(state: State, argv: List(String), reporter: Reporter) {
       State(counter: next)
     }
     Error(e) -> {
-      contract.send_error(e, reporter)
+      reporter.send(e)
       state
     }
   }
@@ -51,7 +51,7 @@ pub fn execute_show(state: State, argv: List(String), reporter: Reporter) {
   case contract.none_command() |> clip.run(argv) {
     Ok(_) -> handle_show(state, reporter)
     Error(e) -> {
-      contract.send_error(e, reporter)
+      reporter.send(e)
       state
     }
   }
