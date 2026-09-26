@@ -1,11 +1,16 @@
 import bot/protocol
+import gleam/dict
 import gleam/erlang/process
+import gleam/int
 import gleam/list
 import gleam/otp/actor
 import gleam/set
 import gleam/string
+import gleam/time/timestamp
 import irc
+import irc/message
 import irc/outgoing
+import irc/tag
 import irc/verb
 import logging
 
@@ -51,19 +56,78 @@ fn handle_incoming(
   }
 }
 
+fn new_batch_id() -> String {
+  let #(s, n) =
+    timestamp.system_time()
+    |> timestamp.to_unix_seconds_and_nanoseconds()
+  int.to_string(s) <> int.to_string(n)
+}
+
+pub fn string_into_chunks(str: String, size: Int) -> List(String) {
+  string_into_chunks_loop(str, size, [])
+}
+
+pub fn string_into_chunks_loop(
+  str: String,
+  size: Int,
+  acc: List(String),
+) -> List(String) {
+  case string.length(str) {
+    0 -> list.reverse(acc)
+    len if len > size -> {
+      let first = string.slice(str, 0, size)
+      let rest = string.slice(str, size, len - size)
+      string_into_chunks_loop(rest, size, [first, ..acc])
+    }
+    _ -> string_into_chunks_loop("", size, [str, ..acc])
+  }
+}
+
+fn string_into_batch(str: String) -> List(String) {
+  // https://ircv3.net/specs/extensions/multiline
+  // 353 bytes -> 117 characters (utf-8 3byte 기준)
+  // 반쯤 잘리는 경우는 피해야한다! 353byte 안에 넣는 식으로 자르려면 다른 방법이 필요할듯
+  // 짧게해도 문제 없으니까 일단 짧게 처리
+  let message_size = 80
+  string_into_chunks(str, message_size)
+}
+
+fn new_privmsg_list(
+  channel: String,
+  content: String,
+  batch_id: String,
+) -> List(message.Message) {
+  content
+  |> string_into_batch
+  |> list.index_map(fn(line, index) {
+    let tags =
+      tag.new_tags()
+      |> dict.insert("batch", tag.TagValue(batch_id))
+      |> fn(tags) {
+        case index {
+          0 -> tags
+          _ -> dict.insert(tags, "draft/multiline-concat", tag.NoTagValue)
+        }
+      }
+
+    outgoing.privmsg(channel, line)
+    |> message.set_tags(tags)
+  })
+}
+
 fn handle_outgoing_text(state: State, channel: String, text: String) {
-  // 공백 메세지를 보내면 ERR_NOTEXTTOSEND 412 로 취급된다
-  // 그래서 공백 문자로 대신 취급
-  let messages =
+  let batch_id = new_batch_id()
+  let batch_messages =
     text
     |> string.split("\n")
-    |> list.map(fn(line) {
-      let line = case line {
-        "" -> " "
-        _ -> line
-      }
-      outgoing.privmsg(channel, line)
-    })
+    |> list.map(new_privmsg_list(channel, _, batch_id))
+    |> list.flatten()
+
+  let batch_begin =
+    message.new("BATCH", ["+" <> batch_id, "draft/multiline", channel])
+  let batch_end = message.new("BATCH", ["-" <> batch_id])
+
+  let messages = list.flatten([[batch_begin], batch_messages, [batch_end]])
 
   let session_subject = process.named_subject(state.session_name)
   protocol.SessionIrcOutgoingBatch(messages)

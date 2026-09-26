@@ -154,8 +154,7 @@ pub fn send_single(
   |> message.to_string()
   |> bit_array.from_string()
   |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
-  |> mug.send(socket, _)
-  |> result.map_error(protocol.SocketError)
+  |> send_buffer_loop(send_socket(socket, _), _)
 }
 
 pub fn send_bulk(
@@ -166,24 +165,31 @@ pub fn send_bulk(
   |> list.map(message.to_string)
   |> list.map(bit_array.from_string)
   |> list.fold(<<>>, fn(acc, x) { bit_array.concat([acc, x, <<"\r\n":utf8>>]) })
-  |> send_buffer_loop(socket, _)
+  |> send_buffer_loop(send_socket(socket, _), _)
+}
+
+fn send_socket(
+  socket: mug.Socket,
+  data: BitArray,
+) -> Result(Nil, protocol.Error) {
+  mug.send(socket, data)
   |> result.map_error(protocol.SocketError)
 }
 
 fn send_buffer_loop(
-  socket: mug.Socket,
+  send: fn(BitArray) -> Result(Nil, protocol.Error),
   buffer: BitArray,
-) -> Result(Nil, mug.Error) {
+) -> Result(Nil, protocol.Error) {
   case bit_array.byte_size(buffer) {
     0 -> Ok(Nil)
     len if len > 512 -> {
       let assert Ok(first) = bit_array.slice(buffer, 0, 512)
       let assert Ok(rest) = bit_array.slice(buffer, 512, len - 512)
-      let next_loop = fn(_) { send_buffer_loop(socket, rest) }
-      mug.send(socket, first) |> result.try(next_loop)
+      send(first)
+      |> result.try(fn(_) { send_buffer_loop(send, rest) })
     }
     _ -> {
-      mug.send(socket, buffer)
+      send(buffer)
     }
   }
 }
