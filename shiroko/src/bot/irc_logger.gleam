@@ -7,8 +7,8 @@ type State =
   Nil
 
 pub type Message {
-  IrcSent(irc.Message, String)
-  IrcReceived(irc.Message, String)
+  Sent(irc.Message, String)
+  Received(irc.Message, String)
 }
 
 fn handle_message(
@@ -17,11 +17,11 @@ fn handle_message(
 ) -> actor.Next(State, Message) {
   // TODO: file logging 까지 확장 계획
   case message {
-    IrcSent(_, line) -> {
+    Sent(_, line) -> {
       logging.log(logging.Debug, "irc sent    : " <> line)
       actor.continue(state)
     }
-    IrcReceived(_, line) -> {
+    Received(_, line) -> {
       logging.log(logging.Debug, "irc received: " <> line)
       actor.continue(state)
     }
@@ -33,4 +33,18 @@ pub fn start_logger(logger_name: process.Name(Message)) {
   |> actor.named(logger_name)
   |> actor.on_message(handle_message)
   |> actor.start()
+}
+
+pub fn received_fun(name: process.Name(Message)) {
+  let subject = process.named_subject(name)
+  fn(message: irc.Message, line: String) {
+    process.send(subject, Received(message, line))
+  }
+}
+
+pub fn sent_fun(name: process.Name(Message)) {
+  let subject = process.named_subject(name)
+  fn(message: irc.Message, line: String) {
+    process.send(subject, Sent(message, line))
+  }
 }

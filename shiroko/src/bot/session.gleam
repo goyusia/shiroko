@@ -72,8 +72,8 @@ fn handle_line(state: State, line: String) {
     |> result.map_error(fn(e) { protocol.BotError(string.inspect(e)) }),
   )
 
-  let log_sent = irc_logger.log_sent_fun(state.logger_name)
-  let log_received = irc_logger.log_received_fun(state.logger_name)
+  let log_sent = irc_logger.sent_fun(state.logger_name)
+  let log_received = irc_logger.received_fun(state.logger_name)
   log_received(msg, line)
 
   case msg.command {
@@ -93,7 +93,7 @@ fn handle_irc_outgoing_single(
   state: State,
   message: irc.Message,
 ) -> actor.Next(State, Message) {
-  let log_sent = irc_logger.log_sent_fun(state.logger_name)
+  let log_sent = irc_logger.sent_fun(state.logger_name)
   let _ = send_single(state.socket, message, log_sent)
   actor.continue(state)
 }
@@ -102,7 +102,7 @@ fn handle_irc_outgoing_bulk(
   state: State,
   messages: List(irc.Message),
 ) -> actor.Next(State, Message) {
-  let log_sent = irc_logger.log_sent_fun(state.logger_name)
+  let log_sent = irc_logger.sent_fun(state.logger_name)
   let _ = send_bulk(state.socket, messages, log_sent)
   actor.continue(state)
 }
