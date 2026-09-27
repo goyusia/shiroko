@@ -13,6 +13,7 @@ import irc/outgoing
 import irc/tag
 import irc/verb
 import logging
+import stdx/stringx
 
 type State {
   State(
@@ -67,25 +68,18 @@ fn new_batch_id() -> String {
 // https://ircv3.net/specs/extensions/multiline
 // 353 bytes
 pub fn string_into_batch(str: String, max_byte_size: Int) -> List(String) {
-  string_into_batch_loop(str, "", max_byte_size, [])
+  string_into_batch_loop(str, max_byte_size, [])
 }
 
 fn string_into_batch_loop(
   str: String,
-  buffer: String,
   max_byte_size: Int,
   batch: List(String),
 ) -> List(String) {
-  case string.first(str) {
-    Ok(head) -> {
-      let rest = string.remove_prefix(str, head)
-      case string.byte_size(buffer) + string.byte_size(head) {
-        next_byte_size if next_byte_size > max_byte_size ->
-          string_into_batch_loop(rest, head, max_byte_size, [buffer, ..batch])
-        _ -> string_into_batch_loop(rest, buffer <> head, max_byte_size, batch)
-      }
-    }
-    Error(_) -> list.reverse([buffer, ..batch])
+  case stringx.split_byte_size(str, max_byte_size) {
+    Ok(#(first, rest)) ->
+      string_into_batch_loop(rest, max_byte_size, [first, ..batch])
+    Error(_) -> list.reverse(batch)
   }
 }
 
