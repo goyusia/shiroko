@@ -19,10 +19,7 @@ pub fn start_supervisor(config: Config) {
       client.start_client(client_name, session_name, dispatcher_name)
     })
 
-  let session_worker =
-    supervision.worker(fn() {
-      session.start_session(config, session_name, client_name)
-    })
+  let session_supervisor = session.supervised(config, session_name, client_name)
 
   let dispatcher_supervisor =
     dispatcher.supervised(dispatcher_name, client_name)
@@ -30,7 +27,7 @@ pub fn start_supervisor(config: Config) {
   let sup =
     supervisor.new(supervisor.OneForOne)
     |> supervisor.add(client_worker)
-    |> supervisor.add(session_worker)
+    |> supervisor.add(session_supervisor)
     |> supervisor.add(dispatcher_supervisor)
     |> supervisor.start()
 

@@ -21,7 +21,7 @@ pub type SessionMessage {
 }
 
 pub type ClientMessage {
-  ClientIncoming(message: irc.Message, line: String)
+  ClientIncoming(message: irc.Message)
   ClientOutgoingText(channel: String, text: String)
 }
 

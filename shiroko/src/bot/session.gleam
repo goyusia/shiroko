@@ -1,8 +1,11 @@
+import bot/irc_logger
 import bot/protocol.{type Endpoint, type Identity}
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/list
 import gleam/otp/actor
+import gleam/otp/static_supervisor as supervisor
+import gleam/otp/supervision
 import gleam/result
 import gleam/set
 import gleam/string
@@ -22,6 +25,7 @@ type State {
     socket: mug.Socket,
     buffer: BitArray,
     client_name: process.Name(protocol.ClientMessage),
+    logger_name: process.Name(irc_logger.Message),
   )
 }
 
@@ -68,14 +72,18 @@ fn handle_line(state: State, line: String) {
     |> result.map_error(fn(e) { protocol.BotError(string.inspect(e)) }),
   )
 
+  let log_sent = irc_logger.log_sent_fun(state.logger_name)
+  let log_received = irc_logger.log_received_fun(state.logger_name)
+  log_received(msg, line)
+
   case msg.command {
     "PING" -> {
       message.Message(..msg, command: verb.pong)
-      |> send_single(state.socket, _)
+      |> send_single(state.socket, _, log_sent)
     }
     _ -> {
       let subject = process.named_subject(state.client_name)
-      process.send(subject, protocol.ClientIncoming(msg, line))
+      process.send(subject, protocol.ClientIncoming(msg))
       Ok(Nil)
     }
   }
@@ -85,7 +93,8 @@ fn handle_irc_outgoing_single(
   state: State,
   message: irc.Message,
 ) -> actor.Next(State, Message) {
-  let _ = send_single(state.socket, message)
+  let log_sent = irc_logger.log_sent_fun(state.logger_name)
+  let _ = send_single(state.socket, message, log_sent)
   actor.continue(state)
 }
 
@@ -93,14 +102,42 @@ fn handle_irc_outgoing_bulk(
   state: State,
   messages: List(irc.Message),
 ) -> actor.Next(State, Message) {
-  let _ = send_bulk(state.socket, messages)
+  let log_sent = irc_logger.log_sent_fun(state.logger_name)
+  let _ = send_bulk(state.socket, messages, log_sent)
   actor.continue(state)
+}
+
+pub fn supervised(config, session_name, client_name) {
+  supervision.supervisor(fn() {
+    start_supervisor(config, session_name, client_name)
+  })
+}
+
+fn start_supervisor(
+  config: protocol.Config,
+  session_name: process.Name(protocol.SessionMessage),
+  client_name: process.Name(protocol.ClientMessage),
+) {
+  let logger_name = process.new_name("irc_logger")
+  let logger_worker =
+    supervision.worker(fn() { irc_logger.start_logger(logger_name) })
+
+  let session_worker =
+    supervision.worker(fn() {
+      start_session(config, session_name, client_name, logger_name)
+    })
+
+  supervisor.new(supervisor.OneForOne)
+  |> supervisor.add(logger_worker)
+  |> supervisor.add(session_worker)
+  |> supervisor.start()
 }
 
 pub fn start_session(
   config: protocol.Config,
   session_name: process.Name(protocol.SessionMessage),
   client_name: process.Name(protocol.ClientMessage),
+  logger_name: process.Name(irc_logger.Message),
 ) {
   actor.new_with_initialiser(1000, fn(subject) {
     case connect(config.endpoint, config.identity) {
@@ -111,7 +148,7 @@ pub fn start_session(
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 
-        let state = State(socket, <<>>, client_name)
+        let state = State(socket, <<>>, client_name, logger_name)
         Ok(
           actor.initialised(state)
           |> actor.selecting(selector)
@@ -146,26 +183,44 @@ fn connect(
   Ok(socket)
 }
 
-pub fn send_single(
+fn send_single(
   socket: mug.Socket,
   msg: irc.Message,
+  log: fn(irc.Message, String) -> Nil,
 ) -> Result(Nil, protocol.Error) {
-  msg
-  |> message.to_string()
-  |> bit_array.from_string()
-  |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
-  |> send_buffer_loop(send_socket(socket, _), _)
+  let line = msg |> message.to_string()
+  let retval =
+    line
+    |> bit_array.from_string()
+    |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
+    |> send_buffer_loop(send_socket(socket, _), _)
+
+  log(msg, line)
+  retval
 }
 
-pub fn send_bulk(
+fn send_bulk(
   socket: mug.Socket,
   messages: List(irc.Message),
+  log: fn(irc.Message, String) -> Nil,
 ) -> Result(Nil, protocol.Error) {
-  messages
-  |> list.map(message.to_string)
-  |> list.map(bit_array.from_string)
-  |> list.fold(<<>>, fn(acc, x) { bit_array.concat([acc, x, <<"\r\n":utf8>>]) })
-  |> send_buffer_loop(send_socket(socket, _), _)
+  let lines = messages |> list.map(message.to_string)
+  let retval =
+    lines
+    |> list.map(bit_array.from_string)
+    |> list.fold(<<>>, fn(acc, x) {
+      bit_array.concat([acc, x, <<"\r\n":utf8>>])
+    })
+    |> send_buffer_loop(send_socket(socket, _), _)
+
+  list.strict_zip(messages, lines)
+  |> result.unwrap([])
+  |> list.each(fn(tuple) {
+    let #(message, line) = tuple
+    log(message, line)
+  })
+
+  retval
 }
 
 fn send_socket(
@@ -237,7 +292,7 @@ fn flow_login(socket: mug.Socket, identity: Identity) {
   let nickname = identity.nickname
   let realname = identity.realname
 
-  let send = send_single(socket, _)
+  let send = send_single(socket, _, fn(_, _) { Nil })
   use _ <- result.try(outgoing.nick(nickname) |> send)
   use _ <- result.try(outgoing.user(nickname, realname) |> send)
   use _ <- result.try(wait_until_welcome(socket))
