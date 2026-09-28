@@ -1,5 +1,5 @@
 import adapter/protocol
-import bot/contract
+import bot/dispatcher
 import gleam/dict
 import gleam/erlang/process
 import gleam/int
@@ -17,7 +17,7 @@ import stdx/stringx
 type State {
   State(
     session_name: process.Name(protocol.SessionMessage),
-    dispatcher_name: process.Name(contract.DispatcherMessage),
+    dispatcher_name: process.Name(dispatcher.Message),
   )
 }
 
@@ -123,7 +123,7 @@ fn handle_privmsg(state: State, message: irc.Message) {
     [channel, text] -> {
       process.send(
         process.named_subject(state.dispatcher_name),
-        contract.DispatcherText(channel, text),
+        dispatcher.DispatcherText(channel, text),
       )
       actor.continue(state)
     }
@@ -151,7 +151,7 @@ fn join(state: State, channel: String) {
 pub fn start_adapter(
   adapter_name: process.Name(protocol.AdapterMessage),
   session_name: process.Name(protocol.SessionMessage),
-  dispatcher_name: process.Name(contract.DispatcherMessage),
+  dispatcher_name: process.Name(dispatcher.Message),
 ) {
   let initial = State(session_name, dispatcher_name)
   actor.new(initial)

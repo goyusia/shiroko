@@ -1,8 +1,9 @@
-import bot/contract.{type RoomStart}
+import bot/contract
 import feature/core.{type Reporter}
 import feature/counter
 import feature/ops
 import feature/system
+import gleam/erlang/process
 import gleam/otp/actor
 import gleam/string
 
@@ -14,14 +15,19 @@ type State {
   State(room_id: String, memory: Memory, adapter: contract.Adapter)
 }
 
-type Message =
-  contract.RoomMessage
+pub type Message {
+  RoomText(text: String)
+}
+
+pub type RoomStart {
+  RoomStart(room_id: String, room_name: process.Name(Message))
+}
 
 fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  let contract.RoomText(text:) = message
+  let RoomText(text:) = message
   case string.starts_with(text, "!") {
     True -> handle_command(state, text)
     False -> actor.continue(state)

@@ -11,19 +11,17 @@ import logging
 
 type State {
   State(
-    mapping: dict.Dict(String, process.Name(contract.RoomMessage)),
+    mapping: dict.Dict(String, process.Name(room.Message)),
     factory_name: process.Name(
-      factory_supervisor.Message(
-        contract.RoomStart,
-        process.Subject(contract.RoomMessage),
-      ),
+      factory_supervisor.Message(room.RoomStart, process.Subject(room.Message)),
     ),
     adapter: contract.Adapter,
   )
 }
 
-type Message =
-  contract.DispatcherMessage
+pub type Message {
+  DispatcherText(room_id: String, text: String)
+}
 
 fn handle_message(
   state: State,
@@ -38,7 +36,7 @@ fn handle_message(
 fn handle_channel(state: State, message: Message) {
   let #(state, room_name) = get_or_create_room(state, message.room_id)
   let room_subject = process.named_subject(room_name)
-  process.send(room_subject, contract.RoomText(text: message.text))
+  process.send(room_subject, room.RoomText(text: message.text))
   actor.continue(state)
 }
 
@@ -49,7 +47,7 @@ fn handle_irrelevant(state, _message) {
 fn get_or_create_room(
   state: State,
   room_id: String,
-) -> #(State, process.Name(contract.RoomMessage)) {
+) -> #(State, process.Name(room.Message)) {
   let factory_sup = factory_supervisor.get_by_name(state.factory_name)
   case dict.get(state.mapping, room_id) {
     Ok(room_name) -> #(state, room_name)
@@ -58,7 +56,7 @@ fn get_or_create_room(
       let _ =
         factory_supervisor.start_child(
           factory_sup,
-          contract.RoomStart(room_id, room_name),
+          room.RoomStart(room_id, room_name),
         )
       logging.log(logging.Info, "room.spawn: " <> room_id)
 
