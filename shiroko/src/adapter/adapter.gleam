@@ -112,7 +112,7 @@ fn handle_outgoing_text(state: State, channel: String, text: String) {
   let messages = list.flatten([[batch_begin], batch_messages, [batch_end]])
 
   let session_subject = process.named_subject(state.session_name)
-  protocol.SessionIrcOutgoingBatch(messages)
+  protocol.OutgoingIrcBatch(messages)
   |> process.send(session_subject, _)
 
   actor.continue(state)
@@ -144,7 +144,7 @@ fn handle_invite(state: State, message: irc.Message) {
 fn join(state: State, channel: String) {
   let session_subject = process.named_subject(state.session_name)
   outgoing.join(channel)
-  |> protocol.SessionIrcOutgoing()
+  |> protocol.OutgoingIrc()
   |> process.send(session_subject, _)
 }
 

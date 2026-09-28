@@ -3,7 +3,7 @@ import irc
 
 pub type AdapterMessage {
   IncomingIrc(message: irc.Message)
-  OutgoingText(channel: String, text: String)
+  OutgoingText(room_id: String, text: String)
 }
 
 pub type DispatcherMessage {

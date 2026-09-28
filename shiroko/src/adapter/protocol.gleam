@@ -10,7 +10,7 @@ pub type Identity {
 }
 
 pub type SessionMessage {
-  SessionTcp(mug.TcpMessage)
-  SessionIrcOutgoing(irc.Message)
-  SessionIrcOutgoingBatch(List(irc.Message))
+  IncomingTcp(mug.TcpMessage)
+  OutgoingIrc(irc.Message)
+  OutgoingIrcBatch(List(irc.Message))
 }

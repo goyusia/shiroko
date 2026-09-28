@@ -41,24 +41,24 @@ fn handle_message(
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    protocol.SessionTcp(mug.Packet(socket, packet)) -> {
+    protocol.IncomingTcp(mug.Packet(socket, packet)) -> {
       mug.receive_next_packet_as_message(socket)
       handle_packet(state, packet)
     }
-    protocol.SessionTcp(mug.SocketClosed(_socket)) -> {
+    protocol.IncomingTcp(mug.SocketClosed(_socket)) -> {
       let reason = "socket closed"
       logging.log(logging.Warning, reason)
       actor.stop_abnormal(reason)
     }
-    protocol.SessionTcp(mug.TcpError(_socket, error)) -> {
+    protocol.IncomingTcp(mug.TcpError(_socket, error)) -> {
       let reason = string.inspect(error)
       logging.log(logging.Critical, reason)
       actor.stop_abnormal(reason)
     }
-    protocol.SessionIrcOutgoing(message) -> {
+    protocol.OutgoingIrc(message) -> {
       handle_irc_outgoing_single(state, message)
     }
-    protocol.SessionIrcOutgoingBatch(messages) -> {
+    protocol.OutgoingIrcBatch(messages) -> {
       handle_irc_outgoing_bulk(state, messages)
     }
   }
@@ -151,7 +151,7 @@ fn start_session(
       Ok(socket) -> {
         let selector =
           process.new_selector()
-          |> mug.select_tcp_messages(fn(msg) { protocol.SessionTcp(msg) })
+          |> mug.select_tcp_messages(fn(msg) { protocol.IncomingTcp(msg) })
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 

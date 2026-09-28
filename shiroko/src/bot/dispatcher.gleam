@@ -48,23 +48,23 @@ fn handle_irrelevant(state, _message) {
 
 fn get_or_create_room(
   state: State,
-  dest: String,
+  room_id: String,
 ) -> #(State, process.Name(contract.RoomMessage)) {
   let factory_sup = factory_supervisor.get_by_name(state.factory_name)
-  case dict.get(state.mapping, dest) {
+  case dict.get(state.mapping, room_id) {
     Ok(room_name) -> #(state, room_name)
     Error(_) -> {
-      let room_name = process.new_name("room:" <> dest)
+      let room_name = process.new_name("room:" <> room_id)
       let _ =
         factory_supervisor.start_child(
           factory_sup,
-          contract.RoomStart(dest, room_name, state.adapter_name),
+          contract.RoomStart(room_id, room_name, state.adapter_name),
         )
-      logging.log(logging.Info, "room.spawn: " <> dest)
+      logging.log(logging.Info, "room.spawn: " <> room_id)
 
       let mapping =
         state.mapping
-        |> dict.insert(dest, room_name)
+        |> dict.insert(room_id, room_name)
       #(State(..state, mapping:), room_name)
     }
   }
