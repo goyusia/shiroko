@@ -1,4 +1,4 @@
-import bot/irc_logger
+import adapter/logger
 import bot/protocol.{type Endpoint, type Identity}
 import gleam/bit_array
 import gleam/erlang/process
@@ -25,7 +25,7 @@ type State {
     socket: mug.Socket,
     buffer: BitArray,
     client_name: process.Name(protocol.ClientMessage),
-    logger_name: process.Name(irc_logger.Message),
+    logger: logger.Logger,
   )
 }
 
@@ -72,14 +72,12 @@ fn handle_line(state: State, line: String) {
     |> result.map_error(fn(e) { protocol.BotError(string.inspect(e)) }),
   )
 
-  let log_sent = irc_logger.sent_fun(state.logger_name)
-  let log_received = irc_logger.received_fun(state.logger_name)
-  log_received(msg, line)
+  state.logger.received(line)
 
   case msg.command {
     "PING" -> {
       message.Message(..msg, command: verb.pong)
-      |> send_single(state.socket, _, log_sent)
+      |> send_single(state.socket, _, state.logger.sent)
     }
     _ -> {
       let subject = process.named_subject(state.client_name)
@@ -93,8 +91,7 @@ fn handle_irc_outgoing_single(
   state: State,
   message: irc.Message,
 ) -> actor.Next(State, Message) {
-  let log_sent = irc_logger.sent_fun(state.logger_name)
-  let _ = send_single(state.socket, message, log_sent)
+  let _ = send_single(state.socket, message, state.logger.sent)
   actor.continue(state)
 }
 
@@ -102,8 +99,7 @@ fn handle_irc_outgoing_bulk(
   state: State,
   messages: List(irc.Message),
 ) -> actor.Next(State, Message) {
-  let log_sent = irc_logger.sent_fun(state.logger_name)
-  let _ = send_bulk(state.socket, messages, log_sent)
+  let _ = send_bulk(state.socket, messages, state.logger.sent)
   actor.continue(state)
 }
 
@@ -118,9 +114,9 @@ fn start_supervisor(
   session_name: process.Name(protocol.SessionMessage),
   client_name: process.Name(protocol.ClientMessage),
 ) {
-  let logger_name = process.new_name("irc_logger")
+  let logger_name = process.new_name("logger")
   let logger_worker =
-    supervision.worker(fn() { irc_logger.start_logger(logger_name) })
+    supervision.worker(fn() { logger.start_logger(logger_name) })
 
   let session_worker =
     supervision.worker(fn() {
@@ -137,10 +133,12 @@ pub fn start_session(
   config: protocol.Config,
   session_name: process.Name(protocol.SessionMessage),
   client_name: process.Name(protocol.ClientMessage),
-  logger_name: process.Name(irc_logger.Message),
+  logger_name: process.Name(logger.Message),
 ) {
+  let logger = logger.logger_by_name(logger_name)
+
   actor.new_with_initialiser(1000, fn(subject) {
-    case connect(config.endpoint, config.identity) {
+    case connect(config.endpoint, config.identity, logger) {
       Ok(socket) -> {
         let selector =
           process.new_selector()
@@ -148,7 +146,7 @@ pub fn start_session(
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 
-        let state = State(socket, <<>>, client_name, logger_name)
+        let state = State(socket, <<>>, client_name, logger)
         Ok(
           actor.initialised(state)
           |> actor.selecting(selector)
@@ -170,6 +168,7 @@ pub fn start_session(
 fn connect(
   endpoint: Endpoint,
   identity: Identity,
+  logger: logger.Logger,
 ) -> Result(mug.Socket, protocol.Error) {
   // TODO: 더 안정적힌 처리 방법?
   use socket <- result.try(
@@ -179,14 +178,14 @@ fn connect(
     |> result.map_error(protocol.ConnectionError),
   )
 
-  use _ <- result.try(flow_login(socket, identity))
+  use _ <- result.try(flow_login(socket, identity, logger))
   Ok(socket)
 }
 
 fn send_single(
   socket: mug.Socket,
   msg: irc.Message,
-  log: fn(irc.Message, String) -> Nil,
+  log: fn(String) -> Nil,
 ) -> Result(Nil, protocol.Error) {
   let line = msg |> message.to_string()
   let retval =
@@ -195,14 +194,17 @@ fn send_single(
     |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
     |> send_buffer_loop(send_socket(socket, _), _)
 
-  log(msg, line)
+  case retval {
+    Ok(_) -> log(line)
+    Error(_) -> Nil
+  }
   retval
 }
 
 fn send_bulk(
   socket: mug.Socket,
   messages: List(irc.Message),
-  log: fn(irc.Message, String) -> Nil,
+  log: fn(String) -> Nil,
 ) -> Result(Nil, protocol.Error) {
   let lines = messages |> list.map(message.to_string)
   let retval =
@@ -213,12 +215,10 @@ fn send_bulk(
     })
     |> send_buffer_loop(send_socket(socket, _), _)
 
-  list.strict_zip(messages, lines)
-  |> result.unwrap([])
-  |> list.each(fn(tuple) {
-    let #(message, line) = tuple
-    log(message, line)
-  })
+  case retval {
+    Ok(_) -> list.each(lines, log)
+    Error(_) -> Nil
+  }
 
   retval
 }
@@ -253,15 +253,17 @@ fn receive_until_match(
   socket: mug.Socket,
   allowlist allowlist: set.Set(String),
   denylist denylist: set.Set(String),
+  logger logger: logger.Logger,
 ) {
-  receive_until_match_inner(socket, allowlist, denylist, <<>>)
+  receive_until_match_loop(socket, allowlist, denylist, <<>>, logger)
 }
 
-fn receive_until_match_inner(
+fn receive_until_match_loop(
   socket: mug.Socket,
   allowlist: set.Set(String),
   denylist: set.Set(String),
   buffer: BitArray,
+  logger: logger.Logger,
 ) -> Result(Nil, protocol.Error) {
   use packet <- result.try(
     mug.receive(socket, timeout_milliseconds: 1000)
@@ -272,9 +274,9 @@ fn receive_until_match_inner(
   let #(lines, rest) = reader.extract_lines(buffer)
 
   case lines {
-    [] -> receive_until_match_inner(socket, allowlist, denylist, rest)
+    [] -> receive_until_match_loop(socket, allowlist, denylist, rest, logger)
     [line, ..] -> {
-      logging.log(logging.Debug, line)
+      logger.received(line)
 
       let assert Ok(message) = message.parse(line)
       let allow = set.contains(allowlist, message.command)
@@ -282,25 +284,26 @@ fn receive_until_match_inner(
       case allow, deny {
         True, _ -> Ok(Nil)
         _, True -> Error(protocol.BotError(line))
-        _, _ -> receive_until_match_inner(socket, allowlist, denylist, rest)
+        _, _ ->
+          receive_until_match_loop(socket, allowlist, denylist, rest, logger)
       }
     }
   }
 }
 
-fn flow_login(socket: mug.Socket, identity: Identity) {
+fn flow_login(socket: mug.Socket, identity: Identity, logger: logger.Logger) {
   let nickname = identity.nickname
   let realname = identity.realname
 
-  let send = send_single(socket, _, fn(_, _) { Nil })
+  let send = send_single(socket, _, logger.sent)
   use _ <- result.try(outgoing.nick(nickname) |> send)
   use _ <- result.try(outgoing.user(nickname, realname) |> send)
-  use _ <- result.try(wait_until_welcome(socket))
+  use _ <- result.try(wait_until_welcome(socket, logger))
   Ok(Nil)
 }
 
-fn wait_until_welcome(socket: mug.Socket) {
+fn wait_until_welcome(socket: mug.Socket, logger: logger.Logger) {
   let allowlist = set.from_list([verb.rpl_welcome])
   let denylist = set.from_list([verb.err_nicknameinuse])
-  receive_until_match(socket, allowlist:, denylist:)
+  receive_until_match(socket, allowlist:, denylist:, logger:)
 }
