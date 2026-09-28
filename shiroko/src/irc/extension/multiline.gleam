@@ -10,7 +10,10 @@ import stdx/stringx
 // https://ircv3.net/specs/extensions/multiline
 // 353 bytes
 pub fn split_multiline_concat(str: String, max_byte_size: Int) -> List(String) {
-  split_multiline_concat_loop(str, max_byte_size, [])
+  case str {
+    "" -> [""]
+    _ -> split_multiline_concat_loop(str, max_byte_size, [])
+  }
 }
 
 fn split_multiline_concat_loop(
@@ -19,9 +22,9 @@ fn split_multiline_concat_loop(
   acc: List(String),
 ) -> List(String) {
   case stringx.split_byte_size(str, max_byte_size) {
-    Ok(#(first, rest)) ->
+    #(first, _) if first == "" -> list.reverse(acc)
+    #(first, rest) ->
       split_multiline_concat_loop(rest, max_byte_size, [first, ..acc])
-    Error(_) -> list.reverse(acc)
   }
 }
 
