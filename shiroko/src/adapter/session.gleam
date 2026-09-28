@@ -30,6 +30,12 @@ type State {
   )
 }
 
+type SessionError {
+  ConnectionError(mug.ConnectError)
+  SocketError(mug.Error)
+  UnknownError(String)
+}
+
 fn handle_message(
   state: State,
   message: Message,
@@ -70,7 +76,7 @@ fn handle_packet(state: State, packet: BitArray) -> actor.Next(State, Message) {
 fn handle_line(state: State, line: String) {
   use msg <- result.try(
     message.parse(line)
-    |> result.map_error(fn(e) { contract.BotError(string.inspect(e)) }),
+    |> result.map_error(fn(e) { UnknownError(string.inspect(e)) }),
   )
 
   state.logger.received(line)
@@ -131,7 +137,7 @@ fn start_supervisor(
   |> supervisor.start()
 }
 
-pub fn start_session(
+fn start_session(
   endpoint: Endpoint,
   identity: Identity,
   session_name: process.Name(protocol.SessionMessage),
@@ -172,13 +178,13 @@ fn connect(
   endpoint: Endpoint,
   identity: Identity,
   logger: logger.Logger,
-) -> Result(mug.Socket, contract.Error) {
+) -> Result(mug.Socket, SessionError) {
   // TODO: 더 안정적힌 처리 방법?
   use socket <- result.try(
     mug.new(endpoint.host, endpoint.port)
     |> mug.timeout(milliseconds: 500)
     |> mug.connect()
-    |> result.map_error(contract.ConnectionError),
+    |> result.map_error(ConnectionError),
   )
 
   use _ <- result.try(flow_login(socket, identity, logger))
@@ -189,7 +195,7 @@ fn send_single(
   socket: mug.Socket,
   msg: irc.Message,
   log: fn(String) -> Nil,
-) -> Result(Nil, contract.Error) {
+) -> Result(Nil, SessionError) {
   let line = msg |> message.to_string()
   let retval =
     line
@@ -208,7 +214,7 @@ fn send_bulk(
   socket: mug.Socket,
   messages: List(irc.Message),
   log: fn(String) -> Nil,
-) -> Result(Nil, contract.Error) {
+) -> Result(Nil, SessionError) {
   let lines = messages |> list.map(message.to_string)
   let retval =
     lines
@@ -229,15 +235,15 @@ fn send_bulk(
 fn send_socket(
   socket: mug.Socket,
   data: BitArray,
-) -> Result(Nil, contract.Error) {
+) -> Result(Nil, SessionError) {
   mug.send(socket, data)
-  |> result.map_error(contract.SocketError)
+  |> result.map_error(SocketError)
 }
 
 fn send_buffer_loop(
-  send: fn(BitArray) -> Result(Nil, contract.Error),
+  send: fn(BitArray) -> Result(Nil, SessionError),
   buffer: BitArray,
-) -> Result(Nil, contract.Error) {
+) -> Result(Nil, SessionError) {
   case bit_array.byte_size(buffer) {
     0 -> Ok(Nil)
     len if len > 512 -> {
@@ -267,10 +273,10 @@ fn receive_until_match_loop(
   denylist: set.Set(String),
   buffer: BitArray,
   logger: logger.Logger,
-) -> Result(Nil, contract.Error) {
+) -> Result(Nil, SessionError) {
   use packet <- result.try(
     mug.receive(socket, timeout_milliseconds: 1000)
-    |> result.map_error(contract.SocketError),
+    |> result.map_error(SocketError),
   )
 
   let buffer = bit_array.append(buffer, packet)
@@ -286,7 +292,7 @@ fn receive_until_match_loop(
       let deny = set.contains(denylist, message.command)
       case allow, deny {
         True, _ -> Ok(Nil)
-        _, True -> Error(contract.BotError(line))
+        _, True -> Error(UnknownError(line))
         _, _ ->
           receive_until_match_loop(socket, allowlist, denylist, rest, logger)
       }

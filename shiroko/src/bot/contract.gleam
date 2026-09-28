@@ -1,6 +1,5 @@
 import gleam/erlang/process
 import irc
-import mug
 
 pub type AdapterMessage {
   IncomingIrc(message: irc.Message)
@@ -21,10 +20,4 @@ pub type RoomStart {
     room_name: process.Name(RoomMessage),
     adapter_name: process.Name(AdapterMessage),
   )
-}
-
-pub type Error {
-  ConnectionError(mug.ConnectError)
-  SocketError(mug.Error)
-  BotError(String)
 }
