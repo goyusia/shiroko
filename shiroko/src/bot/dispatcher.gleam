@@ -1,5 +1,5 @@
-import bot/channel
 import bot/contract
+import bot/room
 import gleam/dict
 import gleam/erlang/process
 import gleam/otp/actor
@@ -11,11 +11,11 @@ import logging
 
 type State {
   State(
-    mapping: dict.Dict(String, process.Name(contract.ChannelMessage)),
+    mapping: dict.Dict(String, process.Name(contract.RoomMessage)),
     factory_name: process.Name(
       factory_supervisor.Message(
-        contract.ChannelStart,
-        process.Subject(contract.ChannelMessage),
+        contract.RoomStart,
+        process.Subject(contract.RoomMessage),
       ),
     ),
     adapter_name: process.Name(contract.AdapterMessage),
@@ -29,16 +29,16 @@ fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  case string.starts_with(message.channel, "#") {
+  case string.starts_with(message.room_id, "#") {
     True -> handle_channel(state, message)
     False -> handle_irrelevant(state, message)
   }
 }
 
 fn handle_channel(state: State, message: Message) {
-  let #(state, channel_name) = get_or_create_channel(state, message.channel)
-  let channel_subject = process.named_subject(channel_name)
-  process.send(channel_subject, contract.ChannelText(text: message.text))
+  let #(state, room_name) = get_or_create_room(state, message.room_id)
+  let room_subject = process.named_subject(room_name)
+  process.send(room_subject, contract.RoomText(text: message.text))
   actor.continue(state)
 }
 
@@ -46,58 +46,60 @@ fn handle_irrelevant(state, _message) {
   actor.continue(state)
 }
 
-fn get_or_create_channel(
+fn get_or_create_room(
   state: State,
   dest: String,
-) -> #(State, process.Name(contract.ChannelMessage)) {
+) -> #(State, process.Name(contract.RoomMessage)) {
   let factory_sup = factory_supervisor.get_by_name(state.factory_name)
   case dict.get(state.mapping, dest) {
-    Ok(channel_name) -> #(state, channel_name)
+    Ok(room_name) -> #(state, room_name)
     Error(_) -> {
-      let channel_name = process.new_name("channel:" <> dest)
+      let room_name = process.new_name("room:" <> dest)
       let _ =
         factory_supervisor.start_child(
           factory_sup,
-          contract.ChannelStart(dest, channel_name, state.adapter_name),
+          contract.RoomStart(dest, room_name, state.adapter_name),
         )
-      logging.log(logging.Info, "channel.spawn: " <> dest)
+      logging.log(logging.Info, "room.spawn: " <> dest)
 
       let mapping =
         state.mapping
-        |> dict.insert(dest, channel_name)
-      #(State(..state, mapping:), channel_name)
+        |> dict.insert(dest, room_name)
+      #(State(..state, mapping:), room_name)
     }
   }
 }
 
-fn start_dispatcher(dispatcher_name, client_name, factory_name) {
-  let initial = State(dict.new(), factory_name, client_name)
+fn start_dispatcher(dispatcher_name, adapter_name, factory_name) {
+  let initial = State(dict.new(), factory_name, adapter_name)
   actor.new(initial)
   |> actor.named(dispatcher_name)
   |> actor.on_message(handle_message)
   |> actor.start()
 }
 
-pub fn supervised(dispatcher_name, client_name) {
-  supervision.supervisor(fn() { start_supervisor(dispatcher_name, client_name) })
+pub fn supervised(dispatcher_name, adapter_name) {
+  supervision.supervisor(fn() {
+    start_supervisor(dispatcher_name, adapter_name)
+  })
 }
 
-fn start_supervisor(dispatcher_name, client_name) {
-  let factory_name = process.new_name("channel_factory")
-  let channel_factory_supervisor =
+fn start_supervisor(dispatcher_name, adapter_name) {
+  let factory_name = process.new_name("room_factory")
+  let room_factory_supervisor =
     factory_supervisor.worker_child(fn(arg) {
-      channel.start_worker(arg, client_name)
+      room.start_worker(arg, adapter_name)
     })
     |> factory_supervisor.named(factory_name)
     |> factory_supervisor.supervised()
 
   let dispatcher_worker =
     supervision.worker(fn() {
-      start_dispatcher(dispatcher_name, client_name, factory_name)
+      start_dispatcher(dispatcher_name, adapter_name, factory_name)
     })
 
   supervisor.new(supervisor.OneForOne)
-  |> supervisor.add(channel_factory_supervisor)
+  |> supervisor.add(room_factory_supervisor)
   |> supervisor.add(dispatcher_worker)
   |> supervisor.start()
 }

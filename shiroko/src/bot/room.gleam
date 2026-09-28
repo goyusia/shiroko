@@ -1,4 +1,4 @@
-import bot/contract.{type ChannelStart}
+import bot/contract.{type RoomStart}
 import feature/core.{type Reporter}
 import feature/counter
 import feature/ops
@@ -20,13 +20,13 @@ type State {
 }
 
 type Message =
-  contract.ChannelMessage
+  contract.RoomMessage
 
 fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  let contract.ChannelText(text:) = message
+  let contract.RoomText(text:) = message
   case string.starts_with(text, "!") {
     True -> handle_command(state, text)
     False -> actor.continue(state)
@@ -100,13 +100,13 @@ fn apply_memory_counter(mem: Memory, counter: counter.State) -> Memory {
 }
 
 pub fn start_worker(
-  arg: ChannelStart,
+  arg: RoomStart,
   adapter_name: process.Name(contract.AdapterMessage),
 ) {
   let memory = Memory(counter: counter.State(counter: 0), blank: 0)
-  let initial = State(arg.channel, memory, adapter_name)
+  let initial = State(arg.room_id, memory, adapter_name)
   actor.new(initial)
-  |> actor.named(arg.channel_name)
+  |> actor.named(arg.room_name)
   |> actor.on_message(handle_message)
   |> actor.start
 }

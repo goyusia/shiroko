@@ -8,17 +8,17 @@ pub type AdapterMessage {
 }
 
 pub type DispatcherMessage {
-  DispatcherText(channel: String, text: String)
+  DispatcherText(room_id: String, text: String)
 }
 
-pub type ChannelMessage {
-  ChannelText(text: String)
+pub type RoomMessage {
+  RoomText(text: String)
 }
 
-pub type ChannelStart {
-  ChannelStart(
-    channel: String,
-    channel_name: process.Name(ChannelMessage),
+pub type RoomStart {
+  RoomStart(
+    room_id: String,
+    room_name: process.Name(RoomMessage),
     adapter_name: process.Name(AdapterMessage),
   )
 }
