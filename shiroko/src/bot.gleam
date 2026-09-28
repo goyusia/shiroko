@@ -1,6 +1,7 @@
 import adapter/adapter
 import adapter/protocol
 import adapter/session
+import bot/contract
 import bot/dispatcher
 import gleam/erlang/process
 import gleam/list
@@ -39,8 +40,12 @@ fn start_supervisor(config: Config) {
       adapter_name,
     )
 
-  let dispatcher_supervisor =
-    dispatcher.supervised(dispatcher_name, adapter_name)
+  let send_text = fn(room_id: String, text: String) {
+    let subject = process.named_subject(adapter_name)
+    process.send(subject, protocol.OutgoingText(room_id, text))
+  }
+  let adapter = contract.Adapter(send_text)
+  let dispatcher_supervisor = dispatcher.supervised(dispatcher_name, adapter)
 
   let sup =
     supervisor.new(supervisor.OneForOne)

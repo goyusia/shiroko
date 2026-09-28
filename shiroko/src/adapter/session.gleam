@@ -1,6 +1,5 @@
 import adapter/logger
 import adapter/protocol.{type Endpoint, type Identity}
-import bot/contract
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/list
@@ -25,7 +24,7 @@ type State {
   State(
     socket: mug.Socket,
     buffer: BitArray,
-    adapter_name: process.Name(contract.AdapterMessage),
+    adapter_name: process.Name(protocol.AdapterMessage),
     logger: logger.Logger,
   )
 }
@@ -88,7 +87,7 @@ fn handle_line(state: State, line: String) {
     }
     _ -> {
       let subject = process.named_subject(state.adapter_name)
-      process.send(subject, contract.IncomingIrc(msg))
+      process.send(subject, protocol.IncomingIrc(msg))
       Ok(Nil)
     }
   }
@@ -120,7 +119,7 @@ fn start_supervisor(
   endpoint: Endpoint,
   identity: Identity,
   session_name: process.Name(protocol.SessionMessage),
-  adapter_name: process.Name(contract.AdapterMessage),
+  adapter_name: process.Name(protocol.AdapterMessage),
 ) {
   let logger_name = process.new_name("logger")
   let logger_worker =
@@ -141,7 +140,7 @@ fn start_session(
   endpoint: Endpoint,
   identity: Identity,
   session_name: process.Name(protocol.SessionMessage),
-  adapter_name: process.Name(contract.AdapterMessage),
+  adapter_name: process.Name(protocol.AdapterMessage),
   logger_name: process.Name(logger.Message),
 ) {
   let logger = logger.logger_by_name(logger_name)

@@ -14,3 +14,8 @@ pub type SessionMessage {
   OutgoingIrc(irc.Message)
   OutgoingIrcBatch(List(irc.Message))
 }
+
+pub type AdapterMessage {
+  IncomingIrc(message: irc.Message)
+  OutgoingText(room_id: String, text: String)
+}

@@ -18,7 +18,7 @@ type State {
         process.Subject(contract.RoomMessage),
       ),
     ),
-    adapter_name: process.Name(contract.AdapterMessage),
+    adapter: contract.Adapter,
   )
 }
 
@@ -58,7 +58,7 @@ fn get_or_create_room(
       let _ =
         factory_supervisor.start_child(
           factory_sup,
-          contract.RoomStart(room_id, room_name, state.adapter_name),
+          contract.RoomStart(room_id, room_name),
         )
       logging.log(logging.Info, "room.spawn: " <> room_id)
 
@@ -78,24 +78,20 @@ fn start_dispatcher(dispatcher_name, adapter_name, factory_name) {
   |> actor.start()
 }
 
-pub fn supervised(dispatcher_name, adapter_name) {
-  supervision.supervisor(fn() {
-    start_supervisor(dispatcher_name, adapter_name)
-  })
+pub fn supervised(dispatcher_name, adapter) {
+  supervision.supervisor(fn() { start_supervisor(dispatcher_name, adapter) })
 }
 
-fn start_supervisor(dispatcher_name, adapter_name) {
+fn start_supervisor(dispatcher_name, adapter) {
   let factory_name = process.new_name("room_factory")
   let room_factory_supervisor =
-    factory_supervisor.worker_child(fn(arg) {
-      room.start_worker(arg, adapter_name)
-    })
+    factory_supervisor.worker_child(fn(arg) { room.start_worker(arg, adapter) })
     |> factory_supervisor.named(factory_name)
     |> factory_supervisor.supervised()
 
   let dispatcher_worker =
     supervision.worker(fn() {
-      start_dispatcher(dispatcher_name, adapter_name, factory_name)
+      start_dispatcher(dispatcher_name, adapter, factory_name)
     })
 
   supervisor.new(supervisor.OneForOne)

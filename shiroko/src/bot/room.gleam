@@ -3,7 +3,6 @@ import feature/core.{type Reporter}
 import feature/counter
 import feature/ops
 import feature/system
-import gleam/erlang/process
 import gleam/otp/actor
 import gleam/string
 
@@ -12,11 +11,7 @@ type Memory {
 }
 
 type State {
-  State(
-    name: String,
-    memory: Memory,
-    adapter_name: process.Name(contract.AdapterMessage),
-  )
+  State(room_id: String, memory: Memory, adapter: contract.Adapter)
 }
 
 type Message =
@@ -34,8 +29,7 @@ fn handle_message(
 }
 
 fn send_text(state: State, text: String) {
-  process.named_subject(state.adapter_name)
-  |> process.send(contract.OutgoingText(state.name, text))
+  state.adapter.send_text(state.room_id, text)
 }
 
 fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
@@ -99,12 +93,9 @@ fn apply_memory_counter(mem: Memory, counter: counter.State) -> Memory {
   Memory(counter: counter, blank: mem.blank)
 }
 
-pub fn start_worker(
-  arg: RoomStart,
-  adapter_name: process.Name(contract.AdapterMessage),
-) {
+pub fn start_worker(arg: RoomStart, adapter: contract.Adapter) {
   let memory = Memory(counter: counter.State(counter: 0), blank: 0)
-  let initial = State(arg.room_id, memory, adapter_name)
+  let initial = State(arg.room_id, memory, adapter)
   actor.new(initial)
   |> actor.named(arg.room_name)
   |> actor.on_message(handle_message)

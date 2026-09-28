@@ -22,15 +22,15 @@ type State {
 }
 
 type Message =
-  contract.AdapterMessage
+  protocol.AdapterMessage
 
 fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    contract.IncomingIrc(message) -> handle_incoming(state, message)
-    contract.OutgoingText(channel, text) ->
+    protocol.IncomingIrc(message) -> handle_incoming(state, message)
+    protocol.OutgoingText(channel, text) ->
       handle_outgoing_text(state, channel, text)
   }
 }
@@ -149,7 +149,7 @@ fn join(state: State, channel: String) {
 }
 
 pub fn start_adapter(
-  adapter_name: process.Name(contract.AdapterMessage),
+  adapter_name: process.Name(protocol.AdapterMessage),
   session_name: process.Name(protocol.SessionMessage),
   dispatcher_name: process.Name(contract.DispatcherMessage),
 ) {

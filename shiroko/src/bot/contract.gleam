@@ -1,9 +1,7 @@
 import gleam/erlang/process
-import irc
 
-pub type AdapterMessage {
-  IncomingIrc(message: irc.Message)
-  OutgoingText(room_id: String, text: String)
+pub type Adapter {
+  Adapter(send_text: fn(String, String) -> Nil)
 }
 
 pub type DispatcherMessage {
@@ -15,9 +13,5 @@ pub type RoomMessage {
 }
 
 pub type RoomStart {
-  RoomStart(
-    room_id: String,
-    room_name: process.Name(RoomMessage),
-    adapter_name: process.Name(AdapterMessage),
-  )
+  RoomStart(room_id: String, room_name: process.Name(RoomMessage))
 }
