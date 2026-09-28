@@ -1,7 +1,7 @@
 import clip
 import clip/arg
 import clip/help
-import feature/contract.{type Reporter}
+import feature/core.{type Reporter}
 import gleam/int
 import gleam/json
 
@@ -46,7 +46,7 @@ pub fn execute_reset(_state, _argv: List(String), reporter: Reporter) {
 }
 
 pub fn execute_show(state: State, argv: List(String), reporter: Reporter) {
-  case contract.none_command() |> clip.run(argv) {
+  case core.none_command() |> clip.run(argv) {
     Ok(_) -> handle_show(state, reporter)
     Error(e) -> {
       reporter.send(e)

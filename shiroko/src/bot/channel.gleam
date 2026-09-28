@@ -1,5 +1,5 @@
-import bot/protocol.{type ChannelStart}
-import feature/contract.{type Reporter}
+import bot/contract.{type ChannelStart}
+import feature/core.{type Reporter}
 import feature/counter
 import feature/ops
 import feature/system
@@ -15,18 +15,18 @@ type State {
   State(
     name: String,
     memory: Memory,
-    client_name: process.Name(protocol.ClientMessage),
+    adapter_name: process.Name(contract.AdapterMessage),
   )
 }
 
 type Message =
-  protocol.ChannelMessage
+  contract.ChannelMessage
 
 fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  let protocol.ChannelText(text:) = message
+  let contract.ChannelText(text:) = message
   case string.starts_with(text, "!") {
     True -> handle_command(state, text)
     False -> actor.continue(state)
@@ -34,13 +34,13 @@ fn handle_message(
 }
 
 fn send_text(state: State, text: String) {
-  process.named_subject(state.client_name)
-  |> process.send(protocol.ClientOutgoingText(state.name, text))
+  process.named_subject(state.adapter_name)
+  |> process.send(contract.OutgoingText(state.name, text))
 }
 
 fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
   let respond = send_text(state, _)
-  let reporter = contract.Reporter(respond)
+  let reporter = core.Reporter(respond)
 
   let tokens = string.split(line, " ")
   let next = dispatch(state.memory, tokens, reporter)
@@ -101,10 +101,10 @@ fn apply_memory_counter(mem: Memory, counter: counter.State) -> Memory {
 
 pub fn start_worker(
   arg: ChannelStart,
-  client_name: process.Name(protocol.ClientMessage),
+  adapter_name: process.Name(contract.AdapterMessage),
 ) {
   let memory = Memory(counter: counter.State(counter: 0), blank: 0)
-  let initial = State(arg.channel, memory, client_name)
+  let initial = State(arg.channel, memory, adapter_name)
   actor.new(initial)
   |> actor.named(arg.channel_name)
   |> actor.on_message(handle_message)

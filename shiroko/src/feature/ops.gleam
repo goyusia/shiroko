@@ -1,5 +1,5 @@
 import clip
-import feature/contract.{type Reporter}
+import feature/core.{type Reporter}
 import gleam/int
 import gleam/result
 import gleam/string
@@ -10,7 +10,7 @@ import uptime/status
 fn erlang_uptime() -> #(Int, #(Int, Int, Int))
 
 pub fn execute_uptime(argv: List(String), reporter: Reporter) {
-  case contract.none_command() |> clip.run(argv) {
+  case core.none_command() |> clip.run(argv) {
     Ok(_) -> handle_uptime(reporter)
     Error(e) -> reporter.send(e)
   }
@@ -28,7 +28,7 @@ fn handle_uptime(reporter: Reporter) {
 }
 
 pub fn execute_version(argv: List(String), reporter: Reporter) {
-  case contract.none_command() |> clip.run(argv) {
+  case core.none_command() |> clip.run(argv) {
     Ok(_) -> handle_version(reporter)
     Error(e) -> reporter.send(e)
   }
@@ -42,7 +42,7 @@ fn handle_version(reporter: Reporter) {
 }
 
 pub fn execute_redeploy(argv: List(String), reporter: Reporter) {
-  case contract.none_command() |> clip.run(argv) {
+  case core.none_command() |> clip.run(argv) {
     Ok(_) -> handle_redeploy(reporter)
     Error(e) -> reporter.send(e)
   }

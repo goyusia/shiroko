@@ -2,7 +2,7 @@ import clip
 import clip/arg
 import clip/help
 import clip/opt
-import feature/contract.{type Reporter}
+import feature/core.{type Reporter}
 import gleam/erlang/process
 import gleam/time/duration
 import gleam/time/timestamp

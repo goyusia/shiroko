@@ -1,5 +1,5 @@
 import bot/channel
-import bot/protocol
+import bot/contract
 import gleam/dict
 import gleam/erlang/process
 import gleam/otp/actor
@@ -11,19 +11,19 @@ import logging
 
 type State {
   State(
-    mapping: dict.Dict(String, process.Name(protocol.ChannelMessage)),
+    mapping: dict.Dict(String, process.Name(contract.ChannelMessage)),
     factory_name: process.Name(
       factory_supervisor.Message(
-        protocol.ChannelStart,
-        process.Subject(protocol.ChannelMessage),
+        contract.ChannelStart,
+        process.Subject(contract.ChannelMessage),
       ),
     ),
-    client_name: process.Name(protocol.ClientMessage),
+    adapter_name: process.Name(contract.AdapterMessage),
   )
 }
 
 type Message =
-  protocol.DispatcherMessage
+  contract.DispatcherMessage
 
 fn handle_message(
   state: State,
@@ -38,7 +38,7 @@ fn handle_message(
 fn handle_channel(state: State, message: Message) {
   let #(state, channel_name) = get_or_create_channel(state, message.channel)
   let channel_subject = process.named_subject(channel_name)
-  process.send(channel_subject, protocol.ChannelText(text: message.text))
+  process.send(channel_subject, contract.ChannelText(text: message.text))
   actor.continue(state)
 }
 
@@ -49,7 +49,7 @@ fn handle_irrelevant(state, _message) {
 fn get_or_create_channel(
   state: State,
   dest: String,
-) -> #(State, process.Name(protocol.ChannelMessage)) {
+) -> #(State, process.Name(contract.ChannelMessage)) {
   let factory_sup = factory_supervisor.get_by_name(state.factory_name)
   case dict.get(state.mapping, dest) {
     Ok(channel_name) -> #(state, channel_name)
@@ -58,7 +58,7 @@ fn get_or_create_channel(
       let _ =
         factory_supervisor.start_child(
           factory_sup,
-          protocol.ChannelStart(dest, channel_name, state.client_name),
+          contract.ChannelStart(dest, channel_name, state.adapter_name),
         )
       logging.log(logging.Info, "channel.spawn: " <> dest)
 

@@ -1,5 +1,6 @@
 import adapter/logger
-import bot/protocol.{type Endpoint, type Identity}
+import adapter/protocol.{type Endpoint, type Identity}
+import bot/contract
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/list
@@ -24,7 +25,7 @@ type State {
   State(
     socket: mug.Socket,
     buffer: BitArray,
-    client_name: process.Name(protocol.ClientMessage),
+    adapter_name: process.Name(contract.AdapterMessage),
     logger: logger.Logger,
   )
 }
@@ -69,7 +70,7 @@ fn handle_packet(state: State, packet: BitArray) -> actor.Next(State, Message) {
 fn handle_line(state: State, line: String) {
   use msg <- result.try(
     message.parse(line)
-    |> result.map_error(fn(e) { protocol.BotError(string.inspect(e)) }),
+    |> result.map_error(fn(e) { contract.BotError(string.inspect(e)) }),
   )
 
   state.logger.received(line)
@@ -80,8 +81,8 @@ fn handle_line(state: State, line: String) {
       |> send_single(state.socket, _, state.logger.sent)
     }
     _ -> {
-      let subject = process.named_subject(state.client_name)
-      process.send(subject, protocol.ClientIncoming(msg))
+      let subject = process.named_subject(state.adapter_name)
+      process.send(subject, contract.IncomingIrc(msg))
       Ok(Nil)
     }
   }
@@ -103,16 +104,17 @@ fn handle_irc_outgoing_bulk(
   actor.continue(state)
 }
 
-pub fn supervised(config, session_name, client_name) {
+pub fn supervised(endpoint, identity, session_name, adapter_name) {
   supervision.supervisor(fn() {
-    start_supervisor(config, session_name, client_name)
+    start_supervisor(endpoint, identity, session_name, adapter_name)
   })
 }
 
 fn start_supervisor(
-  config: protocol.Config,
+  endpoint: Endpoint,
+  identity: Identity,
   session_name: process.Name(protocol.SessionMessage),
-  client_name: process.Name(protocol.ClientMessage),
+  adapter_name: process.Name(contract.AdapterMessage),
 ) {
   let logger_name = process.new_name("logger")
   let logger_worker =
@@ -120,7 +122,7 @@ fn start_supervisor(
 
   let session_worker =
     supervision.worker(fn() {
-      start_session(config, session_name, client_name, logger_name)
+      start_session(endpoint, identity, session_name, adapter_name, logger_name)
     })
 
   supervisor.new(supervisor.OneForOne)
@@ -130,15 +132,16 @@ fn start_supervisor(
 }
 
 pub fn start_session(
-  config: protocol.Config,
+  endpoint: Endpoint,
+  identity: Identity,
   session_name: process.Name(protocol.SessionMessage),
-  client_name: process.Name(protocol.ClientMessage),
+  adapter_name: process.Name(contract.AdapterMessage),
   logger_name: process.Name(logger.Message),
 ) {
   let logger = logger.logger_by_name(logger_name)
 
   actor.new_with_initialiser(1000, fn(subject) {
-    case connect(config.endpoint, config.identity, logger) {
+    case connect(endpoint, identity, logger) {
       Ok(socket) -> {
         let selector =
           process.new_selector()
@@ -146,7 +149,7 @@ pub fn start_session(
           |> process.select(for: subject)
         mug.receive_next_packet_as_message(socket)
 
-        let state = State(socket, <<>>, client_name, logger)
+        let state = State(socket, <<>>, adapter_name, logger)
         Ok(
           actor.initialised(state)
           |> actor.selecting(selector)
@@ -169,13 +172,13 @@ fn connect(
   endpoint: Endpoint,
   identity: Identity,
   logger: logger.Logger,
-) -> Result(mug.Socket, protocol.Error) {
+) -> Result(mug.Socket, contract.Error) {
   // TODO: 더 안정적힌 처리 방법?
   use socket <- result.try(
     mug.new(endpoint.host, endpoint.port)
     |> mug.timeout(milliseconds: 500)
     |> mug.connect()
-    |> result.map_error(protocol.ConnectionError),
+    |> result.map_error(contract.ConnectionError),
   )
 
   use _ <- result.try(flow_login(socket, identity, logger))
@@ -186,7 +189,7 @@ fn send_single(
   socket: mug.Socket,
   msg: irc.Message,
   log: fn(String) -> Nil,
-) -> Result(Nil, protocol.Error) {
+) -> Result(Nil, contract.Error) {
   let line = msg |> message.to_string()
   let retval =
     line
@@ -205,7 +208,7 @@ fn send_bulk(
   socket: mug.Socket,
   messages: List(irc.Message),
   log: fn(String) -> Nil,
-) -> Result(Nil, protocol.Error) {
+) -> Result(Nil, contract.Error) {
   let lines = messages |> list.map(message.to_string)
   let retval =
     lines
@@ -226,15 +229,15 @@ fn send_bulk(
 fn send_socket(
   socket: mug.Socket,
   data: BitArray,
-) -> Result(Nil, protocol.Error) {
+) -> Result(Nil, contract.Error) {
   mug.send(socket, data)
-  |> result.map_error(protocol.SocketError)
+  |> result.map_error(contract.SocketError)
 }
 
 fn send_buffer_loop(
-  send: fn(BitArray) -> Result(Nil, protocol.Error),
+  send: fn(BitArray) -> Result(Nil, contract.Error),
   buffer: BitArray,
-) -> Result(Nil, protocol.Error) {
+) -> Result(Nil, contract.Error) {
   case bit_array.byte_size(buffer) {
     0 -> Ok(Nil)
     len if len > 512 -> {
@@ -264,10 +267,10 @@ fn receive_until_match_loop(
   denylist: set.Set(String),
   buffer: BitArray,
   logger: logger.Logger,
-) -> Result(Nil, protocol.Error) {
+) -> Result(Nil, contract.Error) {
   use packet <- result.try(
     mug.receive(socket, timeout_milliseconds: 1000)
-    |> result.map_error(protocol.SocketError),
+    |> result.map_error(contract.SocketError),
   )
 
   let buffer = bit_array.append(buffer, packet)
@@ -283,7 +286,7 @@ fn receive_until_match_loop(
       let deny = set.contains(denylist, message.command)
       case allow, deny {
         True, _ -> Ok(Nil)
-        _, True -> Error(protocol.BotError(line))
+        _, True -> Error(contract.BotError(line))
         _, _ ->
           receive_until_match_loop(socket, allowlist, denylist, rest, logger)
       }

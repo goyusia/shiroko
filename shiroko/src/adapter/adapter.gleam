@@ -1,4 +1,5 @@
-import bot/protocol
+import adapter/protocol
+import bot/contract
 import gleam/dict
 import gleam/erlang/process
 import gleam/int
@@ -16,31 +17,31 @@ import stdx/stringx
 type State {
   State(
     session_name: process.Name(protocol.SessionMessage),
-    dispatcher_name: process.Name(protocol.DispatcherMessage),
+    dispatcher_name: process.Name(contract.DispatcherMessage),
   )
 }
 
 type Message =
-  protocol.ClientMessage
+  contract.AdapterMessage
 
 fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    protocol.ClientIncoming(message: msg) -> handle_incoming(state, msg)
-    protocol.ClientOutgoingText(channel:, text:) ->
+    contract.IncomingIrc(message) -> handle_incoming(state, message)
+    contract.OutgoingText(channel, text) ->
       handle_outgoing_text(state, channel, text)
   }
 }
 
 fn handle_incoming(
   state: State,
-  msg: irc.Message,
+  message: irc.Message,
 ) -> actor.Next(State, Message) {
-  case msg.command {
-    c if c == verb.privmsg -> handle_privmsg(state, msg)
-    c if c == verb.invite -> handle_invite(state, msg)
+  case message.command {
+    c if c == verb.privmsg -> handle_privmsg(state, message)
+    c if c == verb.invite -> handle_invite(state, message)
     _ -> {
       actor.continue(state)
     }
@@ -117,12 +118,12 @@ fn handle_outgoing_text(state: State, channel: String, text: String) {
   actor.continue(state)
 }
 
-fn handle_privmsg(state: State, msg: irc.Message) {
-  case msg.params {
+fn handle_privmsg(state: State, message: irc.Message) {
+  case message.params {
     [channel, text] -> {
       process.send(
         process.named_subject(state.dispatcher_name),
-        protocol.DispatcherText(channel, text),
+        contract.DispatcherText(channel, text),
       )
       actor.continue(state)
     }
@@ -130,8 +131,8 @@ fn handle_privmsg(state: State, msg: irc.Message) {
   }
 }
 
-fn handle_invite(state: State, msg: irc.Message) {
-  case msg.params {
+fn handle_invite(state: State, message: irc.Message) {
+  case message.params {
     [_nickname, channel] -> {
       join(state, channel)
       actor.continue(state)
@@ -140,21 +141,21 @@ fn handle_invite(state: State, msg: irc.Message) {
   }
 }
 
-pub fn start_client(
-  client_name: process.Name(protocol.ClientMessage),
-  session_name: process.Name(protocol.SessionMessage),
-  dispatcher_name: process.Name(protocol.DispatcherMessage),
-) {
-  let initial = State(session_name, dispatcher_name)
-  actor.new(initial)
-  |> actor.named(client_name)
-  |> actor.on_message(handle_message)
-  |> actor.start
-}
-
 fn join(state: State, channel: String) {
   let session_subject = process.named_subject(state.session_name)
   outgoing.join(channel)
   |> protocol.SessionIrcOutgoing()
   |> process.send(session_subject, _)
+}
+
+pub fn start_adapter(
+  adapter_name: process.Name(contract.AdapterMessage),
+  session_name: process.Name(protocol.SessionMessage),
+  dispatcher_name: process.Name(contract.DispatcherMessage),
+) {
+  let initial = State(session_name, dispatcher_name)
+  actor.new(initial)
+  |> actor.named(adapter_name)
+  |> actor.on_message(handle_message)
+  |> actor.start
 }
