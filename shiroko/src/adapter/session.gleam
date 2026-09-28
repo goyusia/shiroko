@@ -83,7 +83,7 @@ fn handle_line(state: State, line: String) {
   case msg.command {
     "PING" -> {
       message.Message(..msg, command: verb.pong)
-      |> send_single(state.socket, _, state.logger.sent)
+      |> fn(m) { send_bulk(state.socket, [m], state.logger.sent) }
     }
     _ -> {
       let subject = process.named_subject(state.adapter_name)
@@ -97,7 +97,7 @@ fn handle_irc_outgoing_single(
   state: State,
   message: irc.Message,
 ) -> actor.Next(State, Message) {
-  let _ = send_single(state.socket, message, state.logger.sent)
+  let _ = send_bulk(state.socket, [message], state.logger.sent)
   actor.continue(state)
 }
 
@@ -188,25 +188,6 @@ fn connect(
 
   use _ <- result.try(flow_login(socket, identity, logger))
   Ok(socket)
-}
-
-fn send_single(
-  socket: mug.Socket,
-  msg: irc.Message,
-  log: fn(String) -> Nil,
-) -> Result(Nil, SessionError) {
-  let line = msg |> message.to_string()
-  let retval =
-    line
-    |> bit_array.from_string()
-    |> fn(x) { bit_array.concat([x, <<"\r\n":utf8>>]) }
-    |> send_buffer_loop(send_socket(socket, _), _)
-
-  case retval {
-    Ok(_) -> log(line)
-    Error(_) -> Nil
-  }
-  retval
 }
 
 fn send_bulk(
@@ -303,7 +284,7 @@ fn flow_login(socket: mug.Socket, identity: Identity, logger: logger.Logger) {
   let nickname = identity.nickname
   let realname = identity.realname
 
-  let send = send_single(socket, _, logger.sent)
+  let send = fn(message) { send_bulk(socket, [message], logger.sent) }
   use _ <- result.try(outgoing.nick(nickname) |> send)
   use _ <- result.try(outgoing.user(nickname, realname) |> send)
   use _ <- result.try(wait_until_welcome(socket, logger))
