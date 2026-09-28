@@ -3,7 +3,7 @@ import bot/dispatcher
 import gleam/erlang/process
 import gleam/otp/actor
 import irc
-import irc/extension
+import irc/extension/multiline
 import irc/outgoing
 import irc/verb
 
@@ -42,7 +42,7 @@ fn handle_incoming(
 }
 
 fn handle_outgoing_text(state: State, channel: String, text: String) {
-  let messages = extension.encode_privmsg(channel, text)
+  let messages = multiline.encode_privmsg(channel, text)
   let session_subject = process.named_subject(state.session_name)
   process.send(session_subject, protocol.OutgoingIrcBatch(messages))
 

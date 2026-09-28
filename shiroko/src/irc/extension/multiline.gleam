@@ -1,20 +1,11 @@
 import gleam/dict
-import gleam/int
 import gleam/list
 import gleam/string
-import gleam/time/timestamp
+import irc/extension/batch
 import irc/message
 import irc/tag
 import irc/verb
 import stdx/stringx
-
-fn new_batch_id() -> String {
-  let #(s, n) =
-    timestamp.system_time()
-    |> timestamp.to_unix_seconds_and_nanoseconds()
-  let naive = s + n
-  "m-" <> int.to_string(naive % 100)
-}
 
 // https://ircv3.net/specs/extensions/multiline
 // 353 bytes
@@ -55,32 +46,12 @@ fn privmsg_multiline_list(
   })
 }
 
-fn enclose_batch(
-  messages: List(message.Message),
-  batch_id: String,
-  channel: String,
-) -> List(message.Message) {
-  let batch_begin =
-    message.new("BATCH", ["+" <> batch_id, "draft/multiline", channel])
-
-  let batch_end = message.new("BATCH", ["-" <> batch_id])
-
-  let inner_list =
-    messages
-    |> list.map(fn(m) { message.insert_tag(m, "batch", tag.TagValue(batch_id)) })
-
-  []
-  |> list.append([batch_begin])
-  |> list.append(inner_list)
-  |> list.append([batch_end])
-}
-
 pub fn privmsg_multiline(channel: String, text: String) {
   text
   |> string.split("\n")
   |> list.map(privmsg_multiline_list(channel, _))
   |> list.flatten()
-  |> enclose_batch(new_batch_id(), channel)
+  |> batch.enclose_batch(batch.new_batch_id(), ["draft/multiline", channel])
 }
 
 fn should_use_multiline(text: String) -> Bool {
