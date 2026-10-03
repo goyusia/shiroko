@@ -1,5 +1,6 @@
 import gleam/dynamic/decode
 import gleam/json
+import gleam/option.{type Option}
 
 pub type Repository {
   Repository(
@@ -10,7 +11,7 @@ pub type Repository {
     private: Bool,
     owner: User,
     html_url: String,
-    description: String,
+    description: Option(String),
     fork: Bool,
     url: String,
     language: String,
@@ -30,7 +31,7 @@ pub fn repository_decoder() -> decode.Decoder(Repository) {
   use private <- decode.field("private", decode.bool)
   use owner <- decode.field("owner", user_decoder())
   use html_url <- decode.field("html_url", decode.string)
-  use description <- decode.field("description", decode.string)
+  use description <- decode.field("description", decode.optional(decode.string))
   use fork <- decode.field("fork", decode.bool)
   use url <- decode.field("url", decode.string)
   use language <- decode.field("language", decode.string)
