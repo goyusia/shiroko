@@ -10,6 +10,12 @@ pub type WebhookPayload {
   Push(push.Payload)
 }
 
+pub type PingPayload =
+  ping.Payload
+
+pub type PushPayload =
+  push.Payload
+
 pub type DecodeError {
   BodyDecodeError
   JsonDecodeError(json.DecodeError)
