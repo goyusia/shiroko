@@ -60,6 +60,7 @@ fn handle_github_webhook(
           "# github push: " <> repository.full_name,
           "- commit: " <> commit.id,
           "- message: " <> commit.message,
+          "- url: " <> commit.url,
         ]
         |> string.join("\n")
 
