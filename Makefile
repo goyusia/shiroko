@@ -1,9 +1,14 @@
-.PHONY: format check test dev run
+.PHONY: format format-check check test dev run
 
 format:
 	cd stdx && gleam format
 	cd protocol && gleam format
 	cd shiroko && gleam format
+
+format-check:
+	cd stdx && gleam format --check
+	cd protocol && gleam format --check
+	cd shiroko && gleam format --check
 
 check:
 	cd shiroko && gleam check
