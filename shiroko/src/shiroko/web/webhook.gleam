@@ -21,7 +21,7 @@ pub fn github(req: Request, ctx: web.Context) -> Response {
         github.Push(payload) -> handle_push(payload)
       }
 
-      let room_id = "#repo-activity"
+      let room_id = "#internal"
       let message = dispatcher.DispatcherGitHubWebhook(room_id, inner, headers)
       let dispatcher_subject = process.named_subject(ctx.dispatcher_name)
       process.send(dispatcher_subject, message)

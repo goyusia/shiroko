@@ -27,7 +27,7 @@ fn bot_config() {
       nickname: "shiroko_dev",
       realname: "shiroko(dev)",
     ),
-    channels: ["#bot_dev", "#sandbox_dev", "#repo-activity"],
+    channels: ["#bot_dev", "#sandbox_dev", "#homelab-activity_dev"],
     dispatcher_name: process.new_name("dispatcher"),
   )
 }

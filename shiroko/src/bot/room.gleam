@@ -64,7 +64,8 @@ fn handle_github_webhook(
         ]
         |> string.join("\n")
 
-      state.adapter.send_text(state.room_id, text)
+      let channel = "#homelab-activity"
+      state.adapter.send_text(channel, text)
       Nil
     }
     _ -> Nil
