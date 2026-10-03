@@ -23,6 +23,6 @@ fn bot_config() {
   bot.Config(
     endpoint: protocol.IrcEndpoint(host: "ichika", port: 6667),
     identity: protocol.IrcIdentity(nickname: "shiroko", realname: "shiroko"),
-    channels: ["#bot"],
+    channels: ["#bot", "#sandbox"],
   )
 }

@@ -8,7 +8,8 @@ import irc/verb
 import stdx/stringx
 
 // https://ircv3.net/specs/extensions/multiline
-// 353 bytes
+const max_multiline_byte_size = 353
+
 pub fn split_multiline_concat(str: String, max_byte_size: Int) -> List(String) {
   case str {
     "" -> [""]
@@ -33,7 +34,7 @@ fn privmsg_multiline_list(
   content: String,
 ) -> List(message.Message) {
   content
-  |> split_multiline_concat(353)
+  |> split_multiline_concat(max_multiline_byte_size)
   |> list.index_map(fn(line, index) {
     let tags =
       tag.new_tags()
@@ -59,10 +60,7 @@ pub fn privmsg_multiline(channel: String, text: String) {
 
 fn should_use_multiline(text: String) -> Bool {
   let has_newline = string.contains(text, "\n")
-  let long_text = case string.length(text) {
-    x if x > 80 -> True
-    _ -> False
-  }
+  let long_text = string.byte_size(text) >= max_multiline_byte_size
   has_newline || long_text
 }
 

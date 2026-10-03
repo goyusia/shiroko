@@ -2,7 +2,7 @@ name = "shiroko"
 version = "1.0.0"
 
 [dependencies]
-stdx = { path = "../stdx" }
+protocol = { path = "../protocol" }
 gleam_erlang = ">= 1.3.0 and < 2.0.0"
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 mist = ">= 6.0.3 and < 7.0.0"

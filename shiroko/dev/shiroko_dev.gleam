@@ -27,6 +27,6 @@ fn bot_config() {
       nickname: "shiroko_dev",
       realname: "shiroko(dev)",
     ),
-    channels: ["#bot_dev"],
+    channels: ["#bot_dev", "#sandbox_dev"],
   )
 }
