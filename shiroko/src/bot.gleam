@@ -55,20 +55,27 @@ fn start_supervisor(config: Config) {
     |> supervisor.add(dispatcher_supervisor)
     |> supervisor.start()
 
-  // 초기 접속 채널
   let session_subject = process.named_subject(session_name)
-  config.channels
+
+  join_channels(session_subject, config.channels)
+  case config.channels |> list.first() {
+    Ok(channel) -> send_version_info(session_subject, channel)
+    _ -> Nil
+  }
+
+  sup
+}
+
+fn join_channels(session_subject, channels: List(String)) {
+  channels
   |> list.map(outgoing.join)
   |> list.map(protocol.OutgoingIrc)
   |> list.map(process.send(session_subject, _))
+}
 
-  // 기본 채널로 서버 버전 정보 알려주기. 자동 배포떄문에 있으면 편할거같은데
+fn send_version_info(session_subject, channel) {
   let version = status.get_commit_id()
   let line = "bot: " <> version
-  config.channels
-  |> list.map(outgoing.privmsg(_, line))
-  |> list.map(protocol.OutgoingIrc)
-  |> list.map(process.send(session_subject, _))
-
-  sup
+  let message = protocol.OutgoingIrc(outgoing.privmsg(channel, line))
+  process.send(session_subject, message)
 }
