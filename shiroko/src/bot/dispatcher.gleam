@@ -1,5 +1,6 @@
 import bot/contract
 import bot/room
+import github
 import gleam/dict
 import gleam/erlang/process
 import gleam/otp/actor
@@ -21,6 +22,11 @@ type State {
 
 pub type Message {
   DispatcherText(room_id: String, text: String)
+  DispatcherGitHubWebhook(
+    room_id: String,
+    payload: github.WebhookPayload,
+    headers: github.WebhookHeaders,
+  )
 }
 
 fn handle_message(
@@ -36,7 +42,14 @@ fn handle_message(
 fn handle_channel(state: State, message: Message) {
   let #(state, room_name) = get_or_create_room(state, message.room_id)
   let room_subject = process.named_subject(room_name)
-  process.send(room_subject, room.RoomText(text: message.text))
+
+  let room_message = case message {
+    DispatcherText(_, text) -> room.RoomText(text)
+    DispatcherGitHubWebhook(_, payload, headers) ->
+      room.RoomGitHubWebhook(payload, headers)
+  }
+
+  process.send(room_subject, room_message)
   actor.continue(state)
 }
 

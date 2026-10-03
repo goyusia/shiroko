@@ -3,6 +3,7 @@ import feature/core.{type Reporter}
 import feature/counter
 import feature/ops
 import feature/system
+import github
 import gleam/erlang/process
 import gleam/otp/actor
 import gleam/string
@@ -17,6 +18,10 @@ type State {
 
 pub type Message {
   RoomText(text: String)
+  RoomGitHubWebhook(
+    payload: github.WebhookPayload,
+    headers: github.WebhookHeaders,
+  )
 }
 
 pub type RoomStart {
@@ -27,11 +32,43 @@ fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  let RoomText(text:) = message
+  case message {
+    RoomText(text) -> handle_text(state, text)
+    RoomGitHubWebhook(payload, headers) ->
+      handle_github_webhook(state, payload, headers)
+  }
+}
+
+fn handle_text(state: State, text: String) -> actor.Next(State, Message) {
   case string.starts_with(text, "!") {
     True -> handle_command(state, text)
     False -> actor.continue(state)
   }
+}
+
+fn handle_github_webhook(
+  state: State,
+  payload: github.WebhookPayload,
+  _headers: github.WebhookHeaders,
+) -> actor.Next(State, Message) {
+  case payload {
+    github.Push(payload) -> {
+      let repository = payload.repository
+      let commit = payload.head_commit
+      let text =
+        [
+          "# github push: " <> repository.full_name,
+          "- commit: " <> commit.message,
+          "- message: " <> commit.message,
+        ]
+        |> string.join("\n")
+
+      state.adapter.send_text(state.room_id, text)
+      Nil
+    }
+    _ -> Nil
+  }
+  actor.continue(state)
 }
 
 fn send_text(state: State, text: String) {
