@@ -1,5 +1,6 @@
 import github/ping
 import github/push
+import gleam/bit_array
 import gleam/dict
 import gleam/json
 import gleam/result
@@ -10,14 +11,20 @@ pub type WebhookPayload {
 }
 
 pub type DecodeError {
+  BodyDecodeError
   JsonDecodeError(json.DecodeError)
   UnknownEvent
 }
 
 pub fn payload_from_request_body(
-  json_string: String,
+  body: BitArray,
   github_event: String,
 ) -> Result(WebhookPayload, DecodeError) {
+  use json_string <- result.try(
+    body
+    |> bit_array.to_string()
+    |> result.map_error(fn(_) { BodyDecodeError }),
+  )
   case github_event {
     "ping" ->
       ping.payload_from_json(json_string)
@@ -45,21 +52,21 @@ pub type WebhookHeaders {
   )
 }
 
-pub fn webhook_headers_from_request_headers(headers: List(#(String, String))) {
+pub fn headers_from_request_headers(headers: List(#(String, String))) {
   let table = dict.from_list(headers)
   let unwrap = fn(key: String) { table |> dict.get(key) |> result.unwrap("") }
 
   WebhookHeaders(
     content_type: unwrap("content-type"),
     user_agent: unwrap("user-agent"),
-    github_delivery: unwrap("github-delivery"),
-    github_event: unwrap("github-event"),
-    hook_id: unwrap("github-hook-id"),
-    hook_installation_target_id: unwrap("github-hook-installation-target-id"),
+    github_delivery: unwrap("x-github-delivery"),
+    github_event: unwrap("x-github-event"),
+    hook_id: unwrap("x-github-hook-id"),
+    hook_installation_target_id: unwrap("x-github-hook-installation-target-id"),
     hook_installation_target_type: unwrap(
-      "github-hook-installation-target-type",
+      "x-github-hook-installation-target-type",
     ),
-    hub_signature: unwrap("hub-signature"),
-    hub_signature_256: unwrap("hub-signature-256"),
+    hub_signature: unwrap("x-hub-signature"),
+    hub_signature_256: unwrap("x-hub-signature-256"),
   )
 }
