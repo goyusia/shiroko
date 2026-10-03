@@ -23,7 +23,7 @@ fn bot_config() {
   bot.Config(
     endpoint: protocol.IrcEndpoint(host: "ichika", port: 6667),
     identity: protocol.IrcIdentity(nickname: "shiroko", realname: "shiroko"),
-    channels: ["#bot", "#sandbox"],
+    channels: ["#bot", "#sandbox", "#repo-activity"],
     dispatcher_name: process.new_name("dispatcher"),
   )
 }

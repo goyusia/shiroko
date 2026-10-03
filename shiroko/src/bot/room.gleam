@@ -58,7 +58,7 @@ fn handle_github_webhook(
       let text =
         [
           "# github push: " <> repository.full_name,
-          "- commit: " <> commit.message,
+          "- commit: " <> commit.id,
           "- message: " <> commit.message,
         ]
         |> string.join("\n")

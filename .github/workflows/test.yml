@@ -18,6 +18,9 @@ jobs:
           gleam-version: "1.18.1"
           rebar3-version: "3"
           # elixir-version: "1"
-      - run: gleam deps download
-      - run: gleam test
-      - run: gleam format --check src test
+      - run: |
+          (cd stdx && gleam deps download)
+          (cd protocol && gleam deps download)
+          (cd shiroko && gleam deps download)
+      - run: make format-check check
+      - run: make test
