@@ -15,6 +15,7 @@ pub fn handle_request(req: Request, ctx: Context) -> Response {
   let web.Context(
     uptime_registry: uptime_registry,
     static_directory: _static_directory,
+    dispatcher_name: _dispatcher_name,
   ) = ctx
 
   case wisp.path_segments(req) {
@@ -22,7 +23,7 @@ pub fn handle_request(req: Request, ctx: Context) -> Response {
     ["uptime", ..] | ["api", "uptime", ..] ->
       uptime.handle_request(req, uptime_registry)
     ["ops", "redeploy"] -> ops.redeploy(req)
-    ["webhook", "github"] -> webhook.github(req)
+    ["webhook", "github"] -> webhook.github(req, ctx)
     ["healthz"] -> zpage.healthz(req)
     ["readyz"] -> zpage.readyz(req)
     ["startupz"] -> zpage.startupz(req)

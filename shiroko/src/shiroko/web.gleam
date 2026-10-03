@@ -1,8 +1,14 @@
+import bot/dispatcher
+import gleam/erlang/process
 import uptime.{type EndpointRegistry}
 import wisp
 
 pub type Context {
-  Context(static_directory: String, uptime_registry: EndpointRegistry)
+  Context(
+    static_directory: String,
+    uptime_registry: EndpointRegistry,
+    dispatcher_name: process.Name(dispatcher.Message),
+  )
 }
 
 pub fn middleware(

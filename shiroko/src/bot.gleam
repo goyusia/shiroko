@@ -15,6 +15,7 @@ pub type Config {
     endpoint: protocol.Endpoint,
     identity: protocol.Identity,
     channels: List(String),
+    dispatcher_name: process.Name(dispatcher.Message),
   )
 }
 
@@ -25,7 +26,7 @@ pub fn supervised(config: Config) {
 fn start_supervisor(config: Config) {
   let session_name = process.new_name("session")
   let adapter_name = process.new_name("adapter")
-  let dispatcher_name = process.new_name("dispatcher")
+  let dispatcher_name = config.dispatcher_name
 
   let adapter_worker =
     supervision.worker(fn() {

@@ -14,6 +14,7 @@ pub fn start(wrap_reload, bot_config: bot.Config) {
     web.Context(
       uptime_registry: uptime_registry,
       static_directory: static_directory(),
+      dispatcher_name: bot_config.dispatcher_name,
     )
 
   supervisor.new(supervisor.OneForOne)

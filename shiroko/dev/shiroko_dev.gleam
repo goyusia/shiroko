@@ -28,5 +28,6 @@ fn bot_config() {
       realname: "shiroko(dev)",
     ),
     channels: ["#bot_dev", "#sandbox_dev"],
+    dispatcher_name: process.new_name("dispatcher"),
   )
 }
