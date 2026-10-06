@@ -50,7 +50,7 @@ fn service_arg() {
 
 fn revision_arg() {
   arg.new("revision")
-  |> arg.default("main")
+  |> arg.default("origin/main")
 }
 
 type DeployInput {
