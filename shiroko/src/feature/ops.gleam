@@ -70,7 +70,10 @@ fn deploy_command() {
 
 pub fn execute_deploy(argv: List(String), reporter: Reporter) {
   case deploy_command() |> clip.run(argv) {
-    Ok(input) -> handle_deploy(input, reporter)
+    Ok(input) -> {
+      let _ = handle_deploy(input, reporter)
+      Nil
+    }
     Error(e) -> reporter.send(e)
   }
 }
@@ -78,13 +81,10 @@ pub fn execute_deploy(argv: List(String), reporter: Reporter) {
 fn handle_deploy(input: DeployInput, reporter: Reporter) {
   let revision = input.revision
   case input.service {
-    "shiroko" -> {
-      let _ = deploy_shiroko(revision, reporter)
-      Nil
-    }
+    "shiroko" -> deploy_shiroko(revision, reporter)
     _ -> {
       reporter.send("ops.deploy: unknown service")
-      Nil
+      Error(#(1, "unknown service"))
     }
   }
 }
@@ -104,20 +104,20 @@ fn restart_command() {
 
 pub fn execute_restart(argv: List(String), reporter: Reporter) {
   case restart_command() |> clip.run(argv) {
-    Ok(input) -> handle_restart(input, reporter)
+    Ok(input) -> {
+      let _ = handle_restart(input, reporter)
+      Nil
+    }
     Error(e) -> reporter.send(e)
   }
 }
 
 fn handle_restart(input: RestartInput, reporter: Reporter) {
   case input.service {
-    "shiroko" -> {
-      let _ = restart_shiroko(reporter)
-      Nil
-    }
+    "shiroko" -> restart_shiroko(reporter)
     _ -> {
       reporter.send("ops.restart: unknown service")
-      Nil
+      Error(#(1, "unknown service"))
     }
   }
 }
@@ -125,10 +125,12 @@ fn handle_restart(input: RestartInput, reporter: Reporter) {
 const shiroko_dir = "/home/maint/apps/shiroko/"
 
 fn deploy_shiroko(revision: String, reporter: Reporter) {
-  reporter.send("shiroko.deploy: begin...")
+  reporter.send("shiroko.deploy: build " <> revision)
   use _ <- result.try(
     shellout.command("./scripts/build_prod.sh", [revision], shiroko_dir, []),
   )
+
+  reporter.send("shiroko.deploy: restart daemon")
   use _ <- result.try(
     shellout.command("./scripts/server_restart.sh", [], shiroko_dir, []),
   )
@@ -136,7 +138,7 @@ fn deploy_shiroko(revision: String, reporter: Reporter) {
 }
 
 fn restart_shiroko(reporter: Reporter) {
-  reporter.send("shiroko.restart: begin...")
+  reporter.send("shiroko.restart: restart daemon")
   use _ <- result.try(
     shellout.command("./scripts/server_restart.sh", [], shiroko_dir, []),
   )
