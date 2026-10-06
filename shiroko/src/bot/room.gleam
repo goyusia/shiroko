@@ -66,6 +66,17 @@ fn handle_github_webhook(
 
       let channel = "#homelab-activity"
       state.adapter.send_text(channel, text)
+
+      case repository.name, payload.ref {
+        "shiroko", "refs/heads/deploy" -> {
+          let respond = send_text(state, _)
+          let reporter = core.Reporter(respond)
+          let argv = ["shiroko", payload.after]
+          ops.execute_deploy(argv, reporter)
+        }
+        _, _ -> Nil
+      }
+
       Nil
     }
     _ -> Nil

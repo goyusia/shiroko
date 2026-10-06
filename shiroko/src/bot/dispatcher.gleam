@@ -33,7 +33,9 @@ fn handle_message(
   state: State,
   message: Message,
 ) -> actor.Next(State, Message) {
-  case string.starts_with(message.room_id, "#") {
+  let starts_with_hash = string.starts_with(message.room_id, "#")
+  let starts_with_dot = string.starts_with(message.room_id, ".")
+  case starts_with_hash || starts_with_dot {
     True -> handle_channel(state, message)
     False -> handle_irrelevant(state, message)
   }
