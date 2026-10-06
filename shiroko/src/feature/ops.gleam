@@ -123,7 +123,7 @@ fn handle_restart(input: RestartInput, reporter: Reporter) {
 }
 
 fn deploy_shiroko(revision: String, reporter: Reporter) {
-  reporter.send("shiroko.deploy: build " <> revision)
+  reporter.send("shiroko.deploy: revision=" <> revision)
 
   let dir = "/home/maint/apps/shiroko/"
   use _ <- result.try(
