@@ -122,25 +122,38 @@ fn handle_restart(input: RestartInput, reporter: Reporter) {
   }
 }
 
-const shiroko_dir = "/home/maint/apps/shiroko/"
-
 fn deploy_shiroko(revision: String, reporter: Reporter) {
   reporter.send("shiroko.deploy: build " <> revision)
+
+  let dir = "/home/maint/apps/shiroko/"
   use _ <- result.try(
-    shellout.command("./scripts/build_prod.sh", [revision], shiroko_dir, []),
+    shellout.command("./scripts/build_prod.sh", [revision], dir, [])
+    |> result.map(fn(output) {
+      reporter.send(output)
+      0
+    }),
   )
 
   reporter.send("shiroko.deploy: restart daemon")
   use _ <- result.try(
-    shellout.command("./scripts/server_restart.sh", [], shiroko_dir, []),
+    shellout.command("./scripts/server_restart.sh", [], dir, []),
   )
   Ok(0)
 }
 
 fn restart_shiroko(reporter: Reporter) {
-  reporter.send("shiroko.restart: restart daemon")
+  systemd_user_restart("shiroko", reporter)
+}
+
+fn systemd_user_restart(service: String, reporter: Reporter) {
+  reporter.send("systemd.user.restart: restart " <> service)
   use _ <- result.try(
-    shellout.command("./scripts/server_restart.sh", [], shiroko_dir, []),
+    shellout.command(
+      run: "systemctl",
+      with: ["--user", "restart", service],
+      in: ".",
+      opt: [],
+    ),
   )
   Ok(0)
 }
