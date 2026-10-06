@@ -1,0 +1,4 @@
+[tools]
+erlang = "29"
+rebar = { version = "3.27.0", asset_pattern = "rebar3" }
+
