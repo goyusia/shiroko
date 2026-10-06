@@ -107,8 +107,12 @@ fn dispatch(mem: Memory, tokens: List(String), reporter: Reporter) {
       ops.execute_version(argv, reporter)
       Ok(mem)
     }
-    ["!ops.redeploy", ..argv] -> {
-      ops.execute_redeploy(argv, reporter)
+    ["!ops.deploy", ..argv] -> {
+      ops.execute_deploy(argv, reporter)
+      Ok(mem)
+    }
+    ["!ops.restart", ..argv] -> {
+      ops.execute_restart(argv, reporter)
       Ok(mem)
     }
     ["!counter.show", ..argv] -> {

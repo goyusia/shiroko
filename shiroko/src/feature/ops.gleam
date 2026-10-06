@@ -1,4 +1,6 @@
 import clip
+import clip/arg
+import clip/help
 import feature/core.{type Reporter}
 import gleam/int
 import gleam/result
@@ -41,25 +43,102 @@ fn handle_version(reporter: Reporter) {
   |> reporter.send
 }
 
-pub fn execute_redeploy(argv: List(String), reporter: Reporter) {
-  case core.none_command() |> clip.run(argv) {
-    Ok(_) -> handle_redeploy(reporter)
+fn service_arg() {
+  arg.new("service")
+  |> arg.default("shiroko")
+}
+
+fn revision_arg() {
+  arg.new("revision")
+  |> arg.default("main")
+}
+
+type DeployInput {
+  DeployInput(service: String, revision: String)
+}
+
+fn deploy_command() {
+  clip.command({
+    use service <- clip.parameter
+    use revision <- clip.parameter
+    DeployInput(service:, revision:)
+  })
+  |> clip.arg(service_arg())
+  |> clip.arg(revision_arg())
+  |> clip.help(help.simple("!ops.deploy", "deploy"))
+}
+
+pub fn execute_deploy(argv: List(String), reporter: Reporter) {
+  case deploy_command() |> clip.run(argv) {
+    Ok(input) -> handle_deploy(input, reporter)
     Error(e) -> reporter.send(e)
   }
 }
 
-fn handle_redeploy(reporter: Reporter) {
-  reporter.send("redeploy start")
-  let _ = redeploy()
-  Nil
+fn handle_deploy(input: DeployInput, reporter: Reporter) {
+  let revision = input.revision
+  case input.service {
+    "shiroko" -> {
+      let _ = deploy_shiroko(revision, reporter)
+      Nil
+    }
+    _ -> {
+      reporter.send("ops.deploy: unknown service")
+      Nil
+    }
+  }
 }
 
-pub fn redeploy() {
-  let dir = "/home/maint/apps/shiroko/"
-  use _ <- result.try(shellout.command("git", ["pull"], dir, []))
-  use _ <- result.try(shellout.command("./scripts/build_prod.sh", [], dir, []))
+type RestartInput {
+  RestartInput(service: String)
+}
+
+fn restart_command() {
+  clip.command({
+    use service <- clip.parameter
+    RestartInput(service:)
+  })
+  |> clip.arg(service_arg())
+  |> clip.help(help.simple("!ops.restart", "restart"))
+}
+
+pub fn execute_restart(argv: List(String), reporter: Reporter) {
+  case restart_command() |> clip.run(argv) {
+    Ok(input) -> handle_restart(input, reporter)
+    Error(e) -> reporter.send(e)
+  }
+}
+
+fn handle_restart(input: RestartInput, reporter: Reporter) {
+  case input.service {
+    "shiroko" -> {
+      let _ = restart_shiroko(reporter)
+      Nil
+    }
+    _ -> {
+      reporter.send("ops.restart: unknown service")
+      Nil
+    }
+  }
+}
+
+const shiroko_dir = "/home/maint/apps/shiroko/"
+
+fn deploy_shiroko(revision: String, reporter: Reporter) {
+  reporter.send("shiroko.deploy: begin...")
   use _ <- result.try(
-    shellout.command("./scripts/server_restart.sh", [], dir, []),
+    shellout.command("./scripts/build_prod.sh", [revision], shiroko_dir, []),
+  )
+  use _ <- result.try(
+    shellout.command("./scripts/server_restart.sh", [], shiroko_dir, []),
+  )
+  Ok(0)
+}
+
+fn restart_shiroko(reporter: Reporter) {
+  reporter.send("shiroko.restart: begin...")
+  use _ <- result.try(
+    shellout.command("./scripts/server_restart.sh", [], shiroko_dir, []),
   )
   Ok(0)
 }
