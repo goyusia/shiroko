@@ -2,6 +2,7 @@ import clip
 import clip/arg
 import clip/help
 import feature/core.{type Reporter}
+import gleam/erlang/process
 import gleam/int
 import gleam/result
 import gleam/string
@@ -81,10 +82,11 @@ pub fn execute_deploy(argv: List(String), reporter: Reporter) {
 fn handle_deploy(input: DeployInput, reporter: Reporter) {
   let revision = input.revision
   case input.service {
-    "shiroko" -> deploy_shiroko(revision, reporter)
+    "shiroko" ->
+      process.spawn_unlinked(fn() { deploy_shiroko(revision, reporter) })
     _ -> {
       reporter.send("ops.deploy: unknown service")
-      Error(#(1, "unknown service"))
+      process.self()
     }
   }
 }
@@ -114,10 +116,10 @@ pub fn execute_restart(argv: List(String), reporter: Reporter) {
 
 fn handle_restart(input: RestartInput, reporter: Reporter) {
   case input.service {
-    "shiroko" -> restart_shiroko(reporter)
+    "shiroko" -> process.spawn_unlinked(fn() { restart_shiroko(reporter) })
     _ -> {
       reporter.send("ops.restart: unknown service")
-      Error(#(1, "unknown service"))
+      process.self()
     }
   }
 }

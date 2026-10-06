@@ -61,7 +61,8 @@ fn handle_github_webhook(
       case repository.name, payload.ref {
         "shiroko", "refs/heads/deploy" -> {
           let argv = ["shiroko", payload.after]
-          ops.execute_deploy(argv, reporter)
+          process.spawn_unlinked(fn() { ops.execute_deploy(argv, reporter) })
+          Nil
         }
         _, _ -> Nil
       }
