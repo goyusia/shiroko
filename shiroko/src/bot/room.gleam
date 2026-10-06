@@ -53,24 +53,13 @@ fn handle_github_webhook(
 ) -> actor.Next(State, Message) {
   case payload {
     github.Push(payload) -> {
-      let repository = payload.repository
-      let commit = payload.head_commit
-      let text =
-        [
-          "# github push: " <> repository.full_name,
-          "- commit: " <> commit.id,
-          "- message: " <> commit.message,
-          "- url: " <> commit.url,
-        ]
-        |> string.join("\n")
-
       let channel = "#homelab-activity"
-      state.adapter.send_text(channel, text)
+      let respond = state.adapter.send_text(channel, _)
+      let reporter = core.Reporter(respond)
 
+      let repository = payload.repository
       case repository.name, payload.ref {
         "shiroko", "refs/heads/deploy" -> {
-          let respond = send_text(state, _)
-          let reporter = core.Reporter(respond)
           let argv = ["shiroko", payload.after]
           ops.execute_deploy(argv, reporter)
         }
