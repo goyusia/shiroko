@@ -7,7 +7,6 @@ import gleam/int
 import gleam/result
 import gleam/string
 import shellout
-import uptime/status
 
 @external(erlang, "uptime_ffi", "uptime")
 fn erlang_uptime() -> #(Int, #(Int, Int, Int))
@@ -28,20 +27,6 @@ fn handle_uptime(reporter: Reporter) {
   reporter.send(
     "shiroko uptime: " <> h <> ":" <> m <> ":" <> s <> " up " <> d <> " days",
   )
-}
-
-pub fn execute_version(argv: List(String), reporter: Reporter) {
-  case core.none_command() |> clip.run(argv) {
-    Ok(_) -> handle_version(reporter)
-    Error(e) -> reporter.send(e)
-  }
-}
-
-fn handle_version(reporter: Reporter) {
-  let revision = status.get_commit_id()
-  ["# shiroko version", "- commit id: " <> revision]
-  |> string.join("\n")
-  |> reporter.send
 }
 
 fn service_arg() {

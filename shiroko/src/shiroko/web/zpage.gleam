@@ -1,5 +1,5 @@
+import feature/version
 import gleam/json
-import uptime/status
 import wisp.{type Request, type Response}
 
 pub fn healthz(_req: Request) -> Response {
@@ -31,7 +31,7 @@ pub fn startupz(_req: Request) -> Response {
 
 pub fn version(_req: Request) -> Response {
   let name = "shiroko"
-  let revision = status.get_commit_id()
+  let revision = version.get_commit_id()
   let version = revision
   let built_at = "TODO"
 

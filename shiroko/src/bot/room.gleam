@@ -3,6 +3,7 @@ import feature/core.{type Reporter}
 import feature/counter
 import feature/ops
 import feature/system
+import feature/version
 import github
 import gleam/erlang/process
 import gleam/otp/actor
@@ -105,7 +106,7 @@ fn dispatch(mem: Memory, tokens: List(String), reporter: Reporter) {
       Ok(mem)
     }
     ["!version", ..argv] -> {
-      ops.execute_version(argv, reporter)
+      version.execute_version(argv, reporter)
       Ok(mem)
     }
     ["!ops.deploy", ..argv] -> {

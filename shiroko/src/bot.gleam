@@ -3,12 +3,12 @@ import adapter/protocol
 import adapter/session
 import bot/contract
 import bot/dispatcher
+import feature/version
 import gleam/erlang/process
 import gleam/list
 import gleam/otp/static_supervisor as supervisor
 import gleam/otp/supervision
 import irc/outgoing
-import uptime/status
 
 pub type Config {
   Config(
@@ -74,7 +74,7 @@ fn join_channels(session_subject, channels: List(String)) {
 }
 
 fn send_version_info(session_subject, channel) {
-  let version = status.get_commit_id()
+  let version = version.get_commit_id()
   let line = "bot: " <> version
   let message = protocol.OutgoingIrc(outgoing.privmsg(channel, line))
   process.send(session_subject, message)
