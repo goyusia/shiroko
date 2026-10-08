@@ -1,10 +1,10 @@
-import foundation/page
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html.{html}
 import shiroko/web.{type Context}
 import shiroko/web/webhook
 import shiroko/web/zpage
+import stdx/viewx
 import uptime
 import wisp.{type Request, type Response}
 
@@ -32,7 +32,7 @@ pub fn handle_request(req: Request, ctx: Context) -> Response {
 
 fn view_index() -> Element(message) {
   html([], [
-    page.view_head("shiroko"),
+    viewx.head("shiroko"),
     html.body([], [
       html.h1([], [html.text("shiroko")]),
       html.a([attribute.href("/uptime")], [html.text("uptime")]),

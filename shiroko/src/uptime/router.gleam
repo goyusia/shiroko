@@ -1,5 +1,3 @@
-import foundation/http_json
-import foundation/page
 import gleam/http
 import gleam/json
 import gleam/list
@@ -9,6 +7,8 @@ import gleam/time/timestamp
 import lustre/attribute
 import lustre/element
 import lustre/element/html.{html}
+import stdx/jsonx
+import stdx/viewx
 import uptime/health.{type EndpointRegistry, type HttpObservation, type State}
 import wisp.{type Request, type Response}
 
@@ -34,7 +34,7 @@ pub fn page_list(_req: Request, registry: EndpointRegistry) -> Response {
 
   let html =
     html([], [
-      page.view_head("uptime"),
+      viewx.head("uptime"),
       html.body([], [
         html.h1([], [html.text("uptime")]),
         html.h2([], [html.text("endpoints")]),
@@ -54,7 +54,7 @@ pub fn api_show(
 
   case health.state(registry, name) {
     Error(_) ->
-      http_json.error_json("endpoint not found: " <> name)
+      jsonx.error_json("endpoint not found: " <> name)
       |> json.to_string
       |> wisp.json_response(404)
     Ok(state) ->

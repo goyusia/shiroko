@@ -2,7 +2,7 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 
-pub fn view_meta() -> Element(message) {
+pub fn meta() -> Element(message) {
   element.fragment([
     html.meta([attribute.charset("utf-8")]),
     html.meta([
@@ -12,6 +12,6 @@ pub fn view_meta() -> Element(message) {
   ])
 }
 
-pub fn view_head(title: String) -> Element(message) {
-  html.head([], [view_meta(), html.title([], title)])
+pub fn head(title: String) -> Element(message) {
+  html.head([], [meta(), html.title([], title)])
 }
