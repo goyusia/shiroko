@@ -1,9 +1,8 @@
 import bot/contract
+import feature
 import feature/core.{type Reporter}
 import feature/counter
 import feature/ops
-import feature/system
-import feature/version
 import github
 import gleam/erlang/process
 import gleam/otp/actor
@@ -92,56 +91,28 @@ fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
 }
 
 fn dispatch(mem: Memory, tokens: List(String), reporter: Reporter) {
-  case tokens {
-    ["!ping", ..argv] -> {
-      system.execute_ping(argv, reporter)
+  let fn_simple = feature.create_simple_handler(tokens)
+  let fn_counter = feature.create_counter_handler(tokens, mem.counter)
+  case fn_simple, fn_counter {
+    Ok(f), _ -> {
+      f(reporter)
       Ok(mem)
     }
-    ["!panic", ..argv] -> {
-      system.execute_panic(argv, reporter)
+    _, Ok(f) -> {
+      let next = f(reporter)
+      let mem = Memory(..mem, counter: next)
       Ok(mem)
     }
-    ["!uptime", ..argv] -> {
-      ops.execute_uptime(argv, reporter)
-      Ok(mem)
+    _, _ -> {
+      case tokens {
+        ["!" <> command, ..] -> {
+          reporter.send("unknown command: " <> command)
+          Ok(mem)
+        }
+        _ -> Error(Nil)
+      }
     }
-    ["!version", ..argv] -> {
-      version.execute_version(argv, reporter)
-      Ok(mem)
-    }
-    ["!ops.deploy", ..argv] -> {
-      ops.execute_deploy(argv, reporter)
-      Ok(mem)
-    }
-    ["!ops.restart", ..argv] -> {
-      ops.execute_restart(argv, reporter)
-      Ok(mem)
-    }
-    ["!counter.show", ..argv] -> {
-      counter.execute_show(mem.counter, argv, reporter)
-      |> apply_memory_counter(mem, _)
-      |> Ok()
-    }
-    ["!counter.add", ..argv] -> {
-      counter.execute_add(mem.counter, argv, reporter)
-      |> apply_memory_counter(mem, _)
-      |> Ok()
-    }
-    ["!counter.reset", ..argv] -> {
-      counter.execute_reset(mem.counter, argv, reporter)
-      |> apply_memory_counter(mem, _)
-      |> Ok()
-    }
-    ["!" <> command, ..] -> {
-      reporter.send("unknown command: " <> command)
-      Ok(mem)
-    }
-    _ -> Error(Nil)
   }
-}
-
-fn apply_memory_counter(mem: Memory, counter: counter.State) -> Memory {
-  Memory(counter: counter, blank: mem.blank)
 }
 
 pub fn start_worker(arg: RoomStart, adapter: contract.Adapter) {
