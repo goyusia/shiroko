@@ -1,3 +1,6 @@
+import feature/probing/health.{
+  type EndpointRegistry, type HttpObservation, type State,
+}
 import gleam/http
 import gleam/json
 import gleam/list
@@ -9,7 +12,6 @@ import lustre/element
 import lustre/element/html.{html}
 import stdx/jsonx
 import stdx/viewx
-import uptime/health.{type EndpointRegistry, type HttpObservation, type State}
 import wisp.{type Request, type Response}
 
 pub fn page_list(_req: Request, registry: EndpointRegistry) -> Response {
@@ -22,7 +24,7 @@ pub fn page_list(_req: Request, registry: EndpointRegistry) -> Response {
             [health.Responded(..), ..] -> "active"
             _ -> "inactive"
           }
-          let link = "/api/uptime/" <> name
+          let link = "/api/probe/" <> name
           html.li([], [
             html.a([attribute.href(link)], [html.text(name)]),
             html.text(": " <> active),
@@ -34,9 +36,9 @@ pub fn page_list(_req: Request, registry: EndpointRegistry) -> Response {
 
   let html =
     html([], [
-      viewx.head("uptime"),
+      viewx.head("probe"),
       html.body([], [
-        html.h1([], [html.text("uptime")]),
+        html.h1([], [html.text("probe")]),
         html.h2([], [html.text("endpoints")]),
         html.ul([], endpoints),
       ]),

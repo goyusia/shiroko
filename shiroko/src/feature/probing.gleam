@@ -1,5 +1,5 @@
-import uptime/health
-import uptime/router
+import feature/probing/health
+import feature/probing/router
 import wisp.{type Request, type Response}
 
 pub type Endpoint =
@@ -22,8 +22,8 @@ pub fn supervised(registry: EndpointRegistry) {
 
 pub fn handle_request(req: Request, registry: EndpointRegistry) -> Response {
   case wisp.path_segments(req) {
-    ["uptime"] -> router.page_list(req, registry)
-    ["api", "uptime", service] -> router.api_show(req, service, registry)
+    ["probe"] -> router.page_list(req, registry)
+    ["api", "probe", service] -> router.api_show(req, service, registry)
     _ -> wisp.not_found()
   }
 }

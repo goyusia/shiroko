@@ -121,7 +121,7 @@ pub fn new(endpoints: List(Endpoint)) -> EndpointRegistry {
   let workers =
     endpoints
     |> list.fold(dict.new(), fn(workers, endpoint) {
-      let prefix = "uptime_worker_" <> endpoint.name
+      let prefix = "worker_" <> endpoint.name
       let worker = Worker(endpoint: endpoint, name: process.new_name(prefix))
       dict.insert(workers, endpoint.name, worker)
     })

@@ -1,25 +1,25 @@
 import bot
 import dot_env/env
+import feature/probing.{type EndpointRegistry}
 import gleam/otp/static_supervisor as supervisor
 import mist
 import shiroko/router
 import shiroko/web.{type Context}
-import uptime.{type EndpointRegistry}
 import wisp
 import wisp/wisp_mist
 
 pub fn start(wrap_reload, bot_config: bot.Config) {
-  let uptime_registry = new_uptime_registry()
+  let probe_registry = new_probe_registry()
   let context =
     web.Context(
-      uptime_registry: uptime_registry,
+      probe_registry: probe_registry,
       static_directory: static_directory(),
       dispatcher_name: bot_config.dispatcher_name,
     )
 
   supervisor.new(supervisor.OneForOne)
   |> supervisor.add(bot.supervised(bot_config))
-  |> supervisor.add(uptime.supervised(uptime_registry))
+  |> supervisor.add(probing.supervised(probe_registry))
   |> supervisor.add(start_web(wrap_reload, context))
   |> supervisor.start()
 }
@@ -52,16 +52,13 @@ pub fn static_directory() -> String {
   priv_directory <> "/static"
 }
 
-fn new_uptime_registry() -> EndpointRegistry {
+fn new_probe_registry() -> EndpointRegistry {
   let host = "http://ichika"
   // let host = "http://127.0.0.1"
   let interval = 60_000
 
   let endpoints = [
-    uptime.http("nginx", host, interval),
-    uptime.http("pi-hole", host <> ":8089/admin/", interval),
-    uptime.http("calibre", host <> ":8083/login", interval),
-    uptime.http("dagu", host <> ":8525/login", interval),
+    probing.http("pi-hole", host <> ":8089/admin/", interval),
   ]
-  uptime.new(endpoints)
+  probing.new(endpoints)
 }
