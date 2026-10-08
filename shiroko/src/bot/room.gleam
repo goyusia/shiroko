@@ -1,4 +1,5 @@
 import bot/contract
+import bot/job_registry
 import feature
 import feature/core.{type Reporter}
 import feature/counter
@@ -13,7 +14,12 @@ type Memory {
 }
 
 type State {
-  State(room_id: String, memory: Memory, adapter: contract.Adapter)
+  State(
+    room_id: String,
+    memory: Memory,
+    job_registry_name: process.Name(job_registry.Message),
+    adapter: contract.Adapter,
+  )
 }
 
 pub type Message {
@@ -83,19 +89,25 @@ fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
   let reporter = core.Reporter(respond)
 
   let tokens = string.split(line, " ")
-  let next = dispatch(state.memory, tokens, reporter)
+  let next = dispatch(state, state.memory, tokens, reporter)
   case next {
     Ok(memory) -> actor.continue(State(..state, memory:))
     Error(_) -> actor.continue(state)
   }
 }
 
-fn dispatch(mem: Memory, tokens: List(String), reporter: Reporter) {
+fn dispatch(
+  state: State,
+  mem: Memory,
+  tokens: List(String),
+  reporter: Reporter,
+) {
   let fn_simple = feature.create_simple_handler(tokens)
   let fn_counter = feature.create_counter_handler(tokens, mem.counter)
   case fn_simple, fn_counter {
     Ok(f), _ -> {
-      f(reporter)
+      let subject = process.named_subject(state.job_registry_name)
+      actor.send(subject, job_registry.Spawn(fn() { f(reporter) }))
       Ok(mem)
     }
     _, Ok(f) -> {
@@ -115,9 +127,13 @@ fn dispatch(mem: Memory, tokens: List(String), reporter: Reporter) {
   }
 }
 
-pub fn start_worker(arg: RoomStart, adapter: contract.Adapter) {
+pub fn start_worker(
+  arg: RoomStart,
+  job_registry_name,
+  adapter: contract.Adapter,
+) {
   let memory = Memory(counter: counter.State(counter: 0), blank: 0)
-  let initial = State(arg.room_id, memory, adapter)
+  let initial = State(arg.room_id, memory, job_registry_name, adapter)
   actor.new(initial)
   |> actor.named(arg.room_name)
   |> actor.on_message(handle_message)

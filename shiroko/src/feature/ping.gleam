@@ -69,11 +69,8 @@ fn ping_immediate(input: PingInput, reporter: Reporter) {
 }
 
 fn ping_lazy(input: PingInput, reporter: Reporter) {
-  process.spawn_unlinked(fn() {
-    process.sleep(input.delay_ms)
+  process.sleep(input.delay_ms)
 
-    let pong = text(input)
-    reporter.send(pong)
-  })
-  Nil
+  let pong = text(input)
+  reporter.send(pong)
 }

@@ -91,14 +91,18 @@ fn start_dispatcher(dispatcher_name, adapter_name, factory_name) {
   |> actor.start()
 }
 
-pub fn supervised(dispatcher_name, adapter) {
-  supervision.supervisor(fn() { start_supervisor(dispatcher_name, adapter) })
+pub fn supervised(dispatcher_name, job_registry_name, adapter) {
+  supervision.supervisor(fn() {
+    start_supervisor(dispatcher_name, job_registry_name, adapter)
+  })
 }
 
-fn start_supervisor(dispatcher_name, adapter) {
+fn start_supervisor(dispatcher_name, job_registry_name, adapter) {
   let factory_name = process.new_name("room_factory")
   let room_factory_supervisor =
-    factory_supervisor.worker_child(fn(arg) { room.start_worker(arg, adapter) })
+    factory_supervisor.worker_child(fn(arg) {
+      room.start_worker(arg, job_registry_name, adapter)
+    })
     |> factory_supervisor.named(factory_name)
     |> factory_supervisor.supervised()
 

@@ -25,5 +25,6 @@ fn bot_config() {
     identity: protocol.IrcIdentity(nickname: "shiroko", realname: "shiroko"),
     channels: ["#bot", "#sandbox", "#homelab-activity"],
     dispatcher_name: process.new_name("dispatcher"),
+    job_registry_name: process.new_name("job_registry"),
   )
 }

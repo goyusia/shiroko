@@ -29,5 +29,6 @@ fn bot_config() {
     ),
     channels: ["#bot_dev", "#sandbox_dev", "#homelab-activity_dev"],
     dispatcher_name: process.new_name("dispatcher"),
+    job_registry_name: process.new_name("job_registry"),
   )
 }
