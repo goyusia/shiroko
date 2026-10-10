@@ -1,9 +1,12 @@
+import bot/contract
 import gleam/dict
 import gleam/erlang/process
+import gleam/format
 import gleam/int
 import gleam/list
 import gleam/option
 import gleam/otp/actor
+import gleam/string
 import gleam/time/timestamp
 import logging
 
@@ -35,6 +38,7 @@ type State {
     next_id: RunId,
     active_runs: dict.Dict(RunId, Run),
     finished_runs: List(Run),
+    adapter: contract.Adapter,
   )
 }
 
@@ -48,6 +52,7 @@ pub type Message {
   Ready(id: RunId, start: process.Subject(Nil))
   WorkerDown(process.Down)
   ListRuns(reply: process.Subject(List(Run)))
+  GetRun(id: RunId, reply: process.Subject(Result(Run, Nil)))
 }
 
 fn handle_message(
@@ -108,8 +113,24 @@ fn handle_message(
             logging.Debug,
             "job.terminated: " <> int.to_string(run.id),
           )
-          let active_runs = state.active_runs |> dict.delete(run.id)
 
+          case reason {
+            process.Abnormal(reason) -> {
+              let command = run.argv |> string.join(" ")
+              let assert Ok(summary) =
+                format.sprintf("job.process_down.abnormal: id=~s command=~s", [
+                  run.id |> int.to_string,
+                  command,
+                ])
+              let reason = string.inspect(reason)
+              let text = [summary, reason] |> string.join("\n")
+              state.adapter.send_text(run.room_id, text)
+              Nil
+            }
+            _ -> Nil
+          }
+
+          let active_runs = state.active_runs |> dict.delete(run.id)
           let finished_run =
             Run(
               ..run,
@@ -134,6 +155,19 @@ fn handle_message(
       process.send(reply, runs)
       actor.continue(state)
     }
+    GetRun(id, reply) -> {
+      let active_found = dict.get(state.active_runs, id)
+      let finished_found =
+        state.finished_runs |> list.find(fn(run) { run.id == id })
+
+      let found = case active_found, finished_found {
+        Ok(run), _ -> Ok(run)
+        _, Ok(run) -> Ok(run)
+        _, _ -> Error(Nil)
+      }
+      actor.send(reply, found)
+      actor.continue(state)
+    }
   }
 }
 
@@ -148,6 +182,13 @@ pub fn submit(
 
 pub fn list_runs(registry: process.Subject(Message)) -> List(Run) {
   process.call(registry, 1000, ListRuns)
+}
+
+pub fn get_run(
+  registry: process.Subject(Message),
+  id: Int,
+) -> Result(Run, Nil) {
+  process.call(registry, 1000, fn(reply) { GetRun(id, reply) })
 }
 
 fn spawn_job(
@@ -167,14 +208,18 @@ fn spawn_job(
   #(pid, monitor)
 }
 
-pub fn start_registry(job_registry_name: process.Name(Message)) {
+pub fn start_registry(
+  job_registry_name: process.Name(Message),
+  adapter: contract.Adapter,
+) {
   actor.new_with_initialiser(1000, fn(inbox) {
     let selector =
       process.new_selector()
       |> process.select(inbox)
       |> process.select_monitors(WorkerDown)
 
-    let initial = State(inbox, 1, active_runs: dict.new(), finished_runs: [])
+    let initial =
+      State(inbox, 1, active_runs: dict.new(), finished_runs: [], adapter:)
     Ok(
       actor.initialised(initial)
       |> actor.selecting(selector)

@@ -53,7 +53,7 @@ fn start_supervisor(config: Config) {
     dispatcher.supervised(dispatcher_name, job_registry_name, adapter)
 
   let job_registry_worker =
-    supervision.worker(fn() { job.start_registry(job_registry_name) })
+    supervision.worker(fn() { job.start_registry(job_registry_name, adapter) })
 
   let sup =
     supervisor.new(supervisor.OneForOne)

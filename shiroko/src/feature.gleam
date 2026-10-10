@@ -34,6 +34,7 @@ pub fn create_ps_handler(
 ) {
   case argv {
     ["!ps.list", ..args] -> Ok(ps.execute_list(args, job_registry, _))
+    ["!ps.get", ..args] -> Ok(ps.execute_get(args, job_registry, _))
     _ -> Error(Nil)
   }
 }
