@@ -110,7 +110,8 @@ fn dispatch(state: State, argv: List(String), reporter: Reporter) {
 
   case fn_simple, fn_counter, fn_ps {
     Ok(f), _, _ -> {
-      let _id = job.submit(job_registry, fn() { f(reporter) }, argv)
+      let fun = fn() { f(reporter) }
+      let _id = job.submit(job_registry, fun, state.room_id, argv)
       Ok(state)
     }
     _, Ok(f), _ -> {

@@ -22,6 +22,7 @@ pub type Run {
     pid: process.Pid,
     monitor: process.Monitor,
     status: Status,
+    room_id: String,
     argv: List(String),
     started_at: timestamp.Timestamp,
     finished_at: option.Option(timestamp.Timestamp),
@@ -38,7 +39,12 @@ type State {
 }
 
 pub type Message {
-  Submit(fun: fn() -> Nil, argv: List(String), reply: process.Subject(RunId))
+  Submit(
+    fun: fn() -> Nil,
+    room_id: String,
+    argv: List(String),
+    reply: process.Subject(RunId),
+  )
   Ready(id: RunId, start: process.Subject(Nil))
   WorkerDown(process.Down)
   ListRuns(reply: process.Subject(List(Run)))
@@ -49,7 +55,7 @@ fn handle_message(
   message: Message,
 ) -> actor.Next(State, Message) {
   case message {
-    Submit(fun, argv, reply) -> {
+    Submit(fun, room_id, argv, reply) -> {
       let id = state.next_id
       logging.log(logging.Debug, "job.starting: " <> int.to_string(id))
 
@@ -60,6 +66,7 @@ fn handle_message(
           pid:,
           monitor:,
           status: Starting,
+          room_id:,
           argv:,
           started_at: timestamp.system_time(),
           finished_at: option.None,
@@ -133,9 +140,10 @@ fn handle_message(
 pub fn submit(
   registry: process.Subject(Message),
   fun: fn() -> Nil,
+  room_id: String,
   argv: List(String),
 ) -> Int {
-  process.call(registry, 1000, fn(reply) { Submit(fun, argv, reply) })
+  process.call(registry, 1000, fn(reply) { Submit(fun, room_id, argv, reply) })
 }
 
 pub fn list_runs(registry: process.Subject(Message)) -> List(Run) {
