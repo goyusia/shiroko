@@ -8,8 +8,8 @@ pub fn get_commit_id() -> String {
   revision
 }
 
-pub fn execute_version(argv: List(String), reporter: Reporter) {
-  case core.none_command() |> clip.run(argv) {
+pub fn execute_version(args: List(String), reporter: Reporter) {
+  case core.none_command() |> clip.run(args) {
     Ok(_) -> handle_version(reporter)
     Error(e) -> reporter.send(e)
   }

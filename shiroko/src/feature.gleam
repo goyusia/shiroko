@@ -4,23 +4,23 @@ import feature/ops
 import feature/ping
 import feature/version
 
-pub fn create_simple_handler(tokens: List(String)) {
-  case tokens {
-    ["!ping", ..argv] -> Ok(ping.execute_ping(argv, _))
-    ["!crash", ..argv] -> Ok(crash.execute_crash(argv, _))
-    ["!uptime", ..argv] -> Ok(ops.execute_uptime(argv, _))
-    ["!version", ..argv] -> Ok(version.execute_version(argv, _))
-    ["!ops.deploy", ..argv] -> Ok(ops.execute_deploy(argv, _))
-    ["!ops.restart", ..argv] -> Ok(ops.execute_restart(argv, _))
+pub fn create_simple_handler(argv: List(String)) {
+  case argv {
+    ["!ping", ..args] -> Ok(ping.execute_ping(args, _))
+    ["!crash", ..args] -> Ok(crash.execute_crash(args, _))
+    ["!uptime", ..args] -> Ok(ops.execute_uptime(args, _))
+    ["!version", ..args] -> Ok(version.execute_version(args, _))
+    ["!ops.deploy", ..args] -> Ok(ops.execute_deploy(args, _))
+    ["!ops.restart", ..args] -> Ok(ops.execute_restart(args, _))
     _ -> Error(Nil)
   }
 }
 
-pub fn create_counter_handler(tokens: List(String), state: counter.State) {
-  case tokens {
-    ["!counter.show", ..argv] -> Ok(counter.execute_show(state, argv, _))
-    ["!counter.add", ..argv] -> Ok(counter.execute_add(state, argv, _))
-    ["!counter.reset", ..argv] -> Ok(counter.execute_reset(state, argv, _))
+pub fn create_counter_handler(argv: List(String), state: counter.State) {
+  case argv {
+    ["!counter.show", ..args] -> Ok(counter.execute_show(state, args, _))
+    ["!counter.add", ..args] -> Ok(counter.execute_add(state, args, _))
+    ["!counter.reset", ..args] -> Ok(counter.execute_reset(state, args, _))
     _ -> Error(Nil)
   }
 }

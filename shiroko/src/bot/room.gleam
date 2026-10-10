@@ -6,6 +6,7 @@ import feature/counter
 import feature/ops
 import github
 import gleam/erlang/process
+import gleam/list
 import gleam/otp/actor
 import gleam/string
 
@@ -66,8 +67,8 @@ fn handle_github_webhook(
       let repository = payload.repository
       case repository.name, payload.ref {
         "shiroko", "refs/heads/deploy" -> {
-          let argv = ["shiroko", payload.after]
-          ops.execute_deploy(argv, reporter)
+          let args = ["shiroko", payload.after]
+          ops.execute_deploy(args, reporter)
           Nil
         }
         _, _ -> Nil
@@ -88,22 +89,21 @@ fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
   let respond = send_text(state, _)
   let reporter = core.Reporter(respond)
 
-  let tokens = string.split(line, " ")
-  let next = dispatch(state, state.memory, tokens, reporter)
+  let args =
+    line
+    |> string.split(" ")
+    |> list.filter(fn(s) { s != "" })
+
+  let next = dispatch(state, state.memory, args, reporter)
   case next {
     Ok(memory) -> actor.continue(State(..state, memory:))
     Error(_) -> actor.continue(state)
   }
 }
 
-fn dispatch(
-  state: State,
-  mem: Memory,
-  tokens: List(String),
-  reporter: Reporter,
-) {
-  let fn_simple = feature.create_simple_handler(tokens)
-  let fn_counter = feature.create_counter_handler(tokens, mem.counter)
+fn dispatch(state: State, mem: Memory, args: List(String), reporter: Reporter) {
+  let fn_simple = feature.create_simple_handler(args)
+  let fn_counter = feature.create_counter_handler(args, mem.counter)
   case fn_simple, fn_counter {
     Ok(f), _ -> {
       let subject = process.named_subject(state.job_registry_name)
@@ -116,7 +116,7 @@ fn dispatch(
       Ok(mem)
     }
     _, _ -> {
-      case tokens {
+      case args {
         ["!" <> command, ..] -> {
           reporter.send("unknown command: " <> command)
           Ok(mem)

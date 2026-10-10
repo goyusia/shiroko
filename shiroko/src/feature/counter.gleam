@@ -26,8 +26,8 @@ fn add_command() {
   ))
 }
 
-pub fn execute_add(state: State, argv: List(String), reporter: Reporter) {
-  case add_command() |> clip.run(argv) {
+pub fn execute_add(state: State, args: List(String), reporter: Reporter) {
+  case add_command() |> clip.run(args) {
     Ok(input) -> {
       let next = state.counter + input.step
       reporter.send("counter: " <> int.to_string(next))
@@ -40,13 +40,13 @@ pub fn execute_add(state: State, argv: List(String), reporter: Reporter) {
   }
 }
 
-pub fn execute_reset(_state, _argv: List(String), reporter: Reporter) {
+pub fn execute_reset(_state, _args: List(String), reporter: Reporter) {
   reporter.send("counter: 0")
   State(counter: 0)
 }
 
-pub fn execute_show(state: State, argv: List(String), reporter: Reporter) {
-  case core.none_command() |> clip.run(argv) {
+pub fn execute_show(state: State, args: List(String), reporter: Reporter) {
+  case core.none_command() |> clip.run(args) {
     Ok(_) -> handle_show(state, reporter)
     Error(e) -> {
       reporter.send(e)

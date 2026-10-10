@@ -32,8 +32,8 @@ fn ping_command() {
   |> clip.help(help.simple("!ping", "ping"))
 }
 
-pub fn execute_ping(argv: List(String), reporter: Reporter) {
-  case ping_command() |> clip.run(argv) {
+pub fn execute_ping(args: List(String), reporter: Reporter) {
+  case ping_command() |> clip.run(args) {
     Ok(input) -> handle_ping(input, reporter)
     Error(e) -> reporter.send(e)
   }

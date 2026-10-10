@@ -7,8 +7,8 @@ fn crash_command() {
   |> clip.help(help.simple("!crash", "crash"))
 }
 
-pub fn execute_crash(argv: List(String), reporter: Reporter) {
-  case crash_command() |> clip.run(argv) {
+pub fn execute_crash(args: List(String), reporter: Reporter) {
+  case crash_command() |> clip.run(args) {
     Ok(_) -> handle_crash(Nil, reporter)
     Error(e) -> reporter.send(e)
   }

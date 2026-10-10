@@ -11,8 +11,8 @@ import shellout
 @external(erlang, "uptime_ffi", "uptime")
 fn erlang_uptime() -> #(Int, #(Int, Int, Int))
 
-pub fn execute_uptime(argv: List(String), reporter: Reporter) {
-  case core.none_command() |> clip.run(argv) {
+pub fn execute_uptime(args: List(String), reporter: Reporter) {
+  case core.none_command() |> clip.run(args) {
     Ok(_) -> handle_uptime(reporter)
     Error(e) -> reporter.send(e)
   }
@@ -54,8 +54,8 @@ fn deploy_command() {
   |> clip.help(help.simple("!ops.deploy", "deploy"))
 }
 
-pub fn execute_deploy(argv: List(String), reporter: Reporter) {
-  case deploy_command() |> clip.run(argv) {
+pub fn execute_deploy(args: List(String), reporter: Reporter) {
+  case deploy_command() |> clip.run(args) {
     Ok(input) -> {
       let _ = handle_deploy(input, reporter)
       Nil
@@ -89,8 +89,8 @@ fn restart_command() {
   |> clip.help(help.simple("!ops.restart", "restart"))
 }
 
-pub fn execute_restart(argv: List(String), reporter: Reporter) {
-  case restart_command() |> clip.run(argv) {
+pub fn execute_restart(args: List(String), reporter: Reporter) {
+  case restart_command() |> clip.run(args) {
     Ok(input) -> {
       let _ = handle_restart(input, reporter)
       Nil
