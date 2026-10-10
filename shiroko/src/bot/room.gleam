@@ -1,5 +1,5 @@
 import bot/contract
-import bot/job_registry
+import bot/job
 import feature
 import feature/core.{type Reporter}
 import feature/counter
@@ -18,7 +18,7 @@ type State {
   State(
     room_id: String,
     memory: Memory,
-    job_registry_name: process.Name(job_registry.Message),
+    job_registry_name: process.Name(job.Message),
     adapter: contract.Adapter,
   )
 }
@@ -89,37 +89,44 @@ fn handle_command(state: State, line: String) -> actor.Next(State, Message) {
   let respond = send_text(state, _)
   let reporter = core.Reporter(respond)
 
-  let args =
+  let argv =
     line
     |> string.split(" ")
     |> list.filter(fn(s) { s != "" })
 
-  let next = dispatch(state, state.memory, args, reporter)
+  let next = dispatch(state, argv, reporter)
   case next {
-    Ok(memory) -> actor.continue(State(..state, memory:))
+    Ok(next) -> actor.continue(next)
     Error(_) -> actor.continue(state)
   }
 }
 
-fn dispatch(state: State, mem: Memory, args: List(String), reporter: Reporter) {
-  let fn_simple = feature.create_simple_handler(args)
-  let fn_counter = feature.create_counter_handler(args, mem.counter)
-  case fn_simple, fn_counter {
-    Ok(f), _ -> {
-      let subject = process.named_subject(state.job_registry_name)
-      actor.send(subject, job_registry.Spawn(fn() { f(reporter) }))
-      Ok(mem)
+fn dispatch(state: State, argv: List(String), reporter: Reporter) {
+  let job_registry = process.named_subject(state.job_registry_name)
+
+  let fn_simple = feature.create_simple_handler(argv)
+  let fn_counter = feature.create_counter_handler(argv, state.memory.counter)
+  let fn_ps = feature.create_ps_handler(argv, job_registry)
+
+  case fn_simple, fn_counter, fn_ps {
+    Ok(f), _, _ -> {
+      let _id = job.submit(job_registry, fn() { f(reporter) }, argv)
+      Ok(state)
     }
-    _, Ok(f) -> {
+    _, Ok(f), _ -> {
       let next = f(reporter)
-      let mem = Memory(..mem, counter: next)
-      Ok(mem)
+      let state = State(..state, memory: Memory(..state.memory, counter: next))
+      Ok(state)
     }
-    _, _ -> {
-      case args {
+    _, _, Ok(f) -> {
+      f(reporter)
+      Ok(state)
+    }
+    _, _, _ -> {
+      case argv {
         ["!" <> command, ..] -> {
           reporter.send("unknown command: " <> command)
-          Ok(mem)
+          Ok(state)
         }
         _ -> Error(Nil)
       }

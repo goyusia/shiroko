@@ -3,7 +3,7 @@ import adapter/protocol
 import adapter/session
 import bot/contract
 import bot/dispatcher
-import bot/job_registry
+import bot/job
 import feature/version
 import gleam/erlang/process
 import gleam/list
@@ -17,7 +17,7 @@ pub type Config {
     identity: protocol.Identity,
     channels: List(String),
     dispatcher_name: process.Name(dispatcher.Message),
-    job_registry_name: process.Name(job_registry.Message),
+    job_registry_name: process.Name(job.Message),
   )
 }
 
@@ -52,14 +52,15 @@ fn start_supervisor(config: Config) {
   let dispatcher_supervisor =
     dispatcher.supervised(dispatcher_name, job_registry_name, adapter)
 
-  let job_registry_supervisor = job_registry.supervised(job_registry_name)
+  let job_registry_worker =
+    supervision.worker(fn() { job.start_registry(job_registry_name) })
 
   let sup =
     supervisor.new(supervisor.OneForOne)
     |> supervisor.add(adapter_worker)
     |> supervisor.add(session_supervisor)
     |> supervisor.add(dispatcher_supervisor)
-    |> supervisor.add(job_registry_supervisor)
+    |> supervisor.add(job_registry_worker)
     |> supervisor.start()
 
   let session_subject = process.named_subject(session_name)
