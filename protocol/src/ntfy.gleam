@@ -1,3 +1,4 @@
+import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request.{type Request}
 import gleam/json
@@ -103,4 +104,37 @@ pub fn create_request(builder: Builder) -> Request(String) {
   base_req
   |> request.set_method(http.Post)
   |> request.set_body(json.to_string(json_body))
+}
+
+pub type NtfyResponse {
+  Success(id: String, time: Int, expires: Int, event: String, topic: String)
+  Failure(code: Int, http: Int, error: String)
+}
+
+pub fn decode_success(
+  json_string: String,
+) -> Result(NtfyResponse, json.DecodeError) {
+  echo json_string
+  let decoder = {
+    use id <- decode.field("id", decode.string)
+    use time <- decode.field("time", decode.int)
+    use expires <- decode.field("expires", decode.int)
+    use event <- decode.field("event", decode.string)
+    use topic <- decode.field("topic", decode.string)
+    decode.success(Success(id:, time:, expires:, event:, topic:))
+  }
+  json.parse(from: json_string, using: decoder)
+}
+
+pub fn decode_failure(
+  json_string: String,
+) -> Result(NtfyResponse, json.DecodeError) {
+  echo json_string
+  let decoder = {
+    use code <- decode.field("code", decode.int)
+    use http <- decode.field("http", decode.int)
+    use error <- decode.field("error", decode.string)
+    decode.success(Failure(code:, http:, error:))
+  }
+  json.parse(from: json_string, using: decoder)
 }

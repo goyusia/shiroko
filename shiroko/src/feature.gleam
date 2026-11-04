@@ -4,6 +4,7 @@ import feature/crash
 import feature/ops
 import feature/ping
 import feature/ps
+import feature/showcase
 import feature/version
 import gleam/erlang/process
 
@@ -15,6 +16,7 @@ pub fn create_simple_handler(argv: List(String)) {
     ["!version", ..args] -> Ok(version.execute_version(args, _))
     ["!ops.deploy", ..args] -> Ok(ops.execute_deploy(args, _))
     ["!ops.restart", ..args] -> Ok(ops.execute_restart(args, _))
+    ["!showcase.ntfy", ..args] -> Ok(showcase.execute_ntfy(args, _))
     _ -> Error(Nil)
   }
 }
